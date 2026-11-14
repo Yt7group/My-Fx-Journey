@@ -522,9 +522,10 @@ function openSessions(){
 }
 const NEWS_URLS=["https://nfs.faireconomy.media/ff_calendar_thisweek.json","https://nfs.faireconomy.media/ff_calendar_nextweek.json"];
 let newsTry=0;
+async function fetchNews(u){for(const x of [u,"https://api.allorigins.win/raw?url="+encodeURIComponent(u),"https://corsproxy.io/?url="+encodeURIComponent(u)]){try{const c=new AbortController(),t=setTimeout(()=>c.abort(),8000);const r=await fetch(x,{signal:c.signal});clearTimeout(t);if(!r.ok)continue;const j=await r.json();if(Array.isArray(j))return j}catch(e){}}return null}
 async function loadNews(force){const c=ld("tj_news",null);if(c&&!force&&Date.now()-c.ts<108e5&&(c.list.some(e=>e.t>Date.now())||Date.now()-c.ts<18e5))return{list:c.list,ts:c.ts};
   const list=[];let ok=false;newsTry=Date.now();
-  for(const u of NEWS_URLS){try{const r=await fetch(u);if(!r.ok)continue;const j=await r.json();ok=true;j.forEach(e=>{const t=Date.parse(e.date);if(t)list.push({t,title:e.title,cur:e.country,imp:e.impact,fc:e.forecast||"",pv:e.previous||""})})}catch(e){}}
+  for(const u of NEWS_URLS){try{const j=await fetchNews(u);if(!j)continue;ok=true;j.forEach(e=>{const t=Date.parse(e.date);if(t)list.push({t,title:e.title,cur:e.country,imp:e.impact,fc:e.forecast||"",pv:e.previous||""})})}catch(e){}}
   if(ok){list.sort((a,b)=>a.t-b.t);sv("tj_news",{ts:Date.now(),list});return{list,ts:Date.now()}}
   return c?{list:c.list,ts:c.ts,stale:true}:null}
 let nflt="High";
