@@ -681,7 +681,9 @@ function paintAds(){const b=$("#adstrip");if(!b)return;const L=adsActive(),f=L[0
   b.innerHTML=`<span class="adi">${f?adIcon(f):"📢"}</span><span class="adt"><b>${esc(f?(f.title||tx("Ads")):tx("Ads"))}</b>${f&&f.text?`<small>${esc(f.text)}</small>`:""}</span><span class="adg ${f?"on":""}">${f?esc(L.length+" "+tx("ads")):esc(tx("No ads"))}</span>`}
 function openAds(){const L=adsActive();
   openWin(tx("Ads"),L.length?L.map(a=>{const im=adUrl(a.image),lk=adUrl(a.link);return`<section class="card ad"><div class="adh"><span class="adi">${adIcon(a)}</span><div><b>${esc(a.title||"")}</b>${a.date?`<div class="sub">${esc(a.date)}</div>`:""}</div></div>${im?`<img class="adimg" src="${esc(im)}" alt="" loading="lazy">`:""}${a.text?`<div class="adx">${esc(a.text)}</div>`:""}${lk?`<a class="pill l adlk" href="${esc(lk)}" target="_blank" rel="noopener noreferrer">${esc(a.linkText||tx("Open link"))}</a>`:""}</section>`}).join(""):`<div class="empty">${esc(tx("No ads"))}</div>`)}
+async function fsAds(){try{const k=window.TJ_FIREBASE||{};if(!k.projectId||!k.apiKey)return null;const r=await fetch(`https://firestore.googleapis.com/v1/projects/${k.projectId}/databases/(default)/documents/config/ads?key=${k.apiKey}`,{cache:"no-store"});if(!r.ok)return null;const d=await r.json(),j=d.fields&&d.fields.json&&d.fields.json.stringValue;return j?JSON.parse(j):null}catch(e){return null}}
 async function loadAds(){
+  const fa=await fsAds();if(Array.isArray(fa)){AD=fa;sv("tj_ads_v1",AD)}else
   try{const r=await fetch("ads.json?t="+Date.now(),{cache:"no-store"});if(r.ok){const j=await r.json();AD=Array.isArray(j)?j:(j.ads||[]);sv("tj_ads_v1",AD)}}catch(e){}
   if(!adsActive().length&&window.TJ_ADS_INLINE)AD=window.TJ_ADS_INLINE;
   paintAds()}
