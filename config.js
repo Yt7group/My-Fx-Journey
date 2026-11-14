@@ -1,20 +1,10 @@
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-
-// Your web app's Firebase configuration
-const firebaseConfig = {
-apiKey: "AIzaSyDx78_LwFkGfejCJUncbX8eaoRwlIF6f5A",
-authDomain: "my-fx-journey.firebaseapp.com",
-projectId: "my-fx-journey",
-storageBucket: "my-fx-journey.firebasestorage.app",
-messagingSenderId: "251559591304",
-appId: "1:251559591304:web:b98a24559c628cb0650e3d",
-measurementId: "G-6JDWB7ZF21"
+/* Firebase settings (project: my-fx-journey). */
+window.TJ_FIREBASE = {
+  apiKey: "AIzaSyDyXVlLNgj9mXMKbP3PVLjZoqwXJ_LQX9g",
+  authDomain: "my-fx-journey-6fc82.firebaseapp.com",
+  projectId: "my-fx-journey-6fc82",
+  storageBucket: "my-fx-journey-6fc82.firebasestorage.app",
+  messagingSenderId: "199310093304",
+  appId: "1:199310093304:web:f624fa79c44184c63e440d",
+  require: false   // true = force sign-in (no "Skip for now" button)
 };
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
-
-export { app, analytics };
