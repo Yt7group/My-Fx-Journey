@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>YT7 Admin</title>
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box}
+body{margin:0;padding:18px 14px 60px;background:#0b1105;color:#f4f7ea;font:14px/1.4 system-ui,sans-serif;max-width:640px;margin-inline:auto}
+h1{font-size:20px;margin:0 0 14px;color:#d4f53c}h2{font-size:15px;margin:18px 0 8px}
+.c{background:#141c08;border:1px solid #2a3a10;border-radius:16px;padding:14px;margin-bottom:12px}
+input,textarea{width:100%;background:#0b1105;border:1px solid #2a3a10;border-radius:10px;color:#f4f7ea;padding:10px;margin:4px 0;font:inherit}
+button{background:#d4f53c;color:#141a05;border:0;border-radius:999px;padding:11px 18px;font-weight:700;font:inherit;font-weight:700;cursor:pointer}
+button.o{background:transparent;color:#f4f7ea;border:1px solid #2a3a10}button.d{background:#5a1d1d;color:#fff}
+.g{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.n{font-size:28px;font-weight:800;color:#d4f53c}.s{color:#9aa88a;font-size:12px}
+.e{color:#ff7b7b;min-height:18px}.r{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-top:1px solid #22300d}
+label.k{display:flex;gap:8px;align-items:center;margin:6px 0}label.k input{width:auto}
+</style></head><body><div id="app">Loading…</div>
+<script src="config.js"></script>
+<script type="module">
+import{initializeApp}from"https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import{getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged}from"https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import{getFirestore,collection,getDocs,getDoc,doc,setDoc}from"https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+const FB=window.TJ_FIREBASE||{},ADM="yt7admin@tjournal.app",$=s=>document.querySelector(s),R=$("#app");
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+if(!FB.apiKey){R.textContent="Firebase keys are missing in config.js"}else{
+const app=initializeApp(FB),auth=getAuth(app),db=getFirestore(app);let ads=[],users=[];
+const login=m=>{R.innerHTML=`<h1>YT7 Admin</h1><div class="c"><input id="u" placeholder="Admin username" autocapitalize="none" autocomplete="username"><input id="p" type="password" placeholder="Password" autocomplete="current-password"><div class="e">${m||""}</div><button id="go">Sign in</button></div>`;
+ $("#go").onclick=async()=>{try{await signInWithEmailAndPassword(auth,$("#u").value.trim().toLowerCase()+"@tjournal.app",$("#p").value)}catch(e){login("Wrong username or password")}}};
+onAuthStateChanged(auth,u=>{if(!u)return login();if(u.email!==ADM){R.innerHTML=`<h1>YT7 Admin</h1><div class="c">This account is not the admin.<br><br><button id="so">Sign out</button></div>`;$("#so").onclick=()=>signOut(auth);return}dash()});
+async function dash(){R.textContent="Loading…";users=[];
+ try{(await getDocs(collection(db,"users"))).forEach(d=>users.push(d.data()))}catch(e){R.innerHTML=`<div class="c e">Could not read users: ${esc(e.message)}<br>Check the Firestore rules.</div>`;return}
+ try{const s=await getDoc(doc(db,"config","ads"));ads=s.exists()?JSON.parse(s.data().json):[]}catch(e){ads=[]}
+ view()}
+function view(){const n=Date.now(),t0=new Date().setHours(0,0,0,0),U=users.slice().sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+ const st=(a,b)=>`<div class="c"><div class="n">${a}</div><div class="s">${b}</div></div>`,fd=v=>v?new Date(v).toLocaleString([], {dateStyle:"short",timeStyle:"short"}):"-";
+ R.innerHTML=`<h1>YT7 Admin</h1><div class="g">${st(users.length,"Total users")}${st(users.filter(u=>(u.createdAt||0)>=t0).length,"New today")}${st(users.filter(u=>(u.lastSeen||0)>n-864e5).length,"Active (24h)")}${st(users.filter(u=>(u.lastSeen||0)>n-6048e5).length,"Active (7 days)")}</div>
+ <h2>Ads</h2>${ads.map((a,i)=>`<div class="c"><input data-i="${i}" data-k="title" placeholder="Title" value="${esc(a.title)}"><input data-i="${i}" data-k="text" placeholder="Short text" value="${esc(a.text)}"><input data-i="${i}" data-k="icon" placeholder="Icon (emoji or image path)" value="${esc(a.icon)}"><input data-i="${i}" data-k="image" placeholder="Big image URL or path (optional)" value="${esc(a.image)}"><input data-i="${i}" data-k="link" placeholder="Link https://… (optional)" value="${esc(a.link)}"><input data-i="${i}" data-k="linkText" placeholder="Button text (optional)" value="${esc(a.linkText)}"><input data-i="${i}" data-k="until" placeholder="Hide after date YYYY-MM-DD (optional)" value="${esc(a.until)}"><label class="k"><input type="checkbox" data-i="${i}" data-k="featured" ${a.featured?"checked":""}> Show on Home strip</label><button class="d" data-del="${i}">Delete</button></div>`).join("")||`<div class="s">No ads yet.</div>`}
+ <div style="display:flex;gap:8px;margin:10px 0"><button class="o" id="add">+ Add ad</button><button id="save">Save ads</button></div><div class="s" id="msg"></div>
+ <h2>Users (${U.length})</h2><div class="c">${U.slice(0,200).map(u=>`<div class="r"><b>${esc(u.username)}</b><span class="s">joined ${fd(u.createdAt)} · seen ${fd(u.lastSeen)}</span></div>`).join("")||'<div class="s">No users yet.</div>'}</div>
+ <button class="o" id="so">Sign out</button>`;
+ $("#add").onclick=()=>{ads.unshift({title:"",text:"",icon:"📢",date:new Date().toISOString().slice(0,10),featured:!ads.length});view()};
+ $("#so").onclick=()=>signOut(auth);
+ document.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{ads.splice(+b.dataset.del,1);view()});
+ $("#save").onclick=async()=>{const m=$("#msg");try{await setDoc(doc(db,"config","ads"),{json:JSON.stringify(ads),updated:Date.now()});m.textContent="Saved ✓ (the app shows it next time it opens)"}catch(e){m.textContent="Save failed: "+e.message}}}
+R.oninput=R.onchange=e=>{const t=e.target;if(t.dataset&&t.dataset.k!==undefined)ads[+t.dataset.i][t.dataset.k]=t.type==="checkbox"?t.checked:t.value}}
+</script></body></html>
