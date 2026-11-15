@@ -97,8 +97,8 @@ $("#bk").onclick=close;
 
 /* ---------- Home ---------- */
 const lotOf=t=>{if(t.lot>0)return(+t.lot).toFixed(2)+" lot";if(!(t.entry>0&&t.sl>0))return"";const c=lotCalc(t.pair,t.entry,t.sl,cp.rk[t.id],0);return c.err||!(c.lot>0)?"":c.lot.toFixed(2)+" lot"};
-const row=t=>{const r=t.r,mny=cp.pnl[t.id]||0,main=fr(r),oth=money(mny,1),k=r>0?"w":r<0?"l":"",lt=lotOf(t);
-  return`<div class="pr" data-e="${t.id}"><span class="pbd ${t.dir==="buy"?"w":"l"}">${t.dir==="buy"?"B":"S"}</span><div class="pm"><b>${esc(t.pair)}</b>${t.rules?"":'<span class="badge b">rules ✗</span>'}${t.shot?`<a class="lk" href="${esc(t.shot)}" target="_blank" rel="noopener noreferrer">📎</a>`:""}${t.imgs&&t.imgs.length?`<button class="imgbtn" data-v="${t.id}">🖼 ${t.imgs.length}</button>`:""}<div class="ps">${t.dir==="buy"?"Buy":"Sell"}</div>${lt?`<div class="ps lt">${lt}</div>`:""}${t.note?`<div class="ps pn">${esc(t.note)}</div>`:""}</div><div class="pmid ${cls(mny)}">${oth}</div><div class="pv"><b class="pvm ${cls(r)}">${main}</b><span class="tg ${k}">${r>0?"You earn":r<0?"Just a loss":"Break even"}</span></div></div>`};
+const row=t=>{const r=t.r,mny=cp.pnl[t.id]||0,k=r>0?"w":r<0?"l":"",lt=lotOf(t),dir=t.dir==="buy"?"Buy":"Sell";
+  return`<div class="pr" data-e="${t.id}"><span class="pbd ${t.dir==="buy"?"w":"l"}">${t.dir==="buy"?"B":"S"}</span><div class="pm"><b>${esc(t.pair)}</b>${t.rules?"":'<span class="badge b">rules ✗</span>'}${t.shot?`<a class="lk" href="${esc(t.shot)}" target="_blank" rel="noopener noreferrer">📎</a>`:""}<div class="ps">${dir}${lt?" · "+lt:""}</div>${t.note?`<div class="ps pn">${esc(t.note)}</div>`:""}</div><div class="pmid ${cls(mny)}">${money(mny,1)}</div><span class="tg ${k}">${r>0?"You earn":r<0?"Just a loss":"Break even"}</span></div>`};
 function bindRows(root){$$(`${root} [data-e]`).forEach(e=>e.onclick=ev=>{const v=ev.target.closest(".imgbtn");if(v){openViewer(+v.dataset.v);return}if(ev.target.closest("a"))return;openTrade(+e.dataset.e)})}
 function home(){
   const D=byDay(),now=new Date(),mk=dk(now).slice(0,7);
@@ -310,18 +310,18 @@ function openTrade(id){
   <label>Result (R) · auto<input name="r" type="number" step="any" readonly tabindex="-1" placeholder="Auto" value="${o("r","")}"></label><label>Risk %<input name="risk" type="number" step="any" inputmode="decimal" value="${o("risk",set.risk)}"></label>
   <label class="full">Risk amount (${esc(set.cur)})<input name="ramt" type="number" step="any" inputmode="decimal" value="${r2((+o("risk",set.risk)||0)/100*cp.bal)}"></label>
   <div class="note full" id="lot">Fill Entry and SL to see a lot size suggestion.</div>
-  <label class="full">Lot size<input name="lot" type="number" step="any" min="0" inputmode="decimal" placeholder="Auto, or type your lot" value="${o("lot","")}"></label>
+  <label class="full">Lot size · auto<input name="lot" type="text" readonly tabindex="-1" placeholder="Auto" value="${o("lot","")}"></label>
   <label class="full">Emotion${sl("emo",["Calm","FOMO","Fear","Revenge","Greed"],o("emo","Calm"))}</label>
   <label class="tog full"><input type="checkbox" name="rules" ${t?(t.rules?"checked":""):"checked"}> I followed all my rules</label>
   <label class="full">Note<textarea name="note" rows="2">${esc(o("note",""))}</textarea></label>
   <div class="full"><div class="sub" style="margin-bottom:6px">Screenshots (max 4)</div><div class="row" id="thumbs" style="flex-wrap:wrap"></div><label class="pill o" style="cursor:pointer;flex-direction:row;color:var(--ink);font-size:12px;margin-top:6px;width:max-content">+ Add image<input type="file" id="ti" accept="image/*" multiple hidden></label></div>
   <label class="full">Screenshot link (optional)<input name="shot" type="text" inputmode="url" placeholder="https://www.tradingview.com/x/..." value="${esc(o("shot",""))}"></label>
   <div class="full row"><button class="pill l" type="submit" style="flex:1">Save trade</button>${t?`<button class="pill d" type="button" id="dl">Delete</button>`:""}</div></form>`);
-  const F=$("#f");let touched=false;if(t&&t.lot>0)F.lot.dataset.m="1";F.lot.addEventListener("input",()=>{F.lot.dataset.m=F.lot.value===""?"":"1";au()});
+  const F=$("#f");let touched=false;
   const au=()=>{const e=parseFloat(F.entry.value),s=parseFloat(F.sl.value),x=parseFloat(F.exit.value);
     if(isFinite(e)&&isFinite(s)&&e!==s){F.r.value=isFinite(x)?r2((F.dir.value==="buy"?x-e:e-x)/Math.abs(e-s)):((!t||touched)?"":F.r.value);
       const rk=(parseFloat(F.risk.value)||0)/100*cp.bal,c=lotCalc(F.pair.value,e,s,rk,0),pips=Math.abs(e-s)/pipInfo(F.pair.value,e).pip;
-      if(!c.err&&F.lot.dataset.m!=="1"&&(!t||touched))F.lot.value=c.lot.toFixed(2);$("#lot").textContent=c.err?`SL ${pips.toFixed(1)} pips · risk ${money(rk)}`:`SL ${c.pips.toFixed(1)} pips · risk ${money(rk)} · ≈ ${c.lot.toFixed(2)} lot`}else if(!t||touched)F.r.value=""};
+      if(!t||touched)F.lot.value=c.err?"":c.lot.toFixed(2);$("#lot").textContent=c.err?`SL ${pips.toFixed(1)} pips · risk ${money(rk)}`:`SL ${c.pips.toFixed(1)} pips · risk ${money(rk)} · ≈ ${c.lot.toFixed(2)} lot`}else if(!t||touched)F.r.value=""};
   ["entry","sl","exit","dir","pair","risk"].forEach(n=>F[n].addEventListener("input",()=>{if(!/^(pair|risk)$/.test(n))touched=true;au()}));au();getRate().then(au);
   F.risk.addEventListener("input",()=>{const p=parseFloat(F.risk.value);F.ramt.value=isFinite(p)&&cp.bal>0?r2(p/100*cp.bal):""});
   F.ramt.addEventListener("input",()=>{const m=parseFloat(F.ramt.value);F.risk.value=isFinite(m)&&cp.bal>0?+(m/cp.bal*100).toFixed(3):"";au()});
@@ -437,6 +437,7 @@ async function unlockFlow(){
     const K=ld("tj_lk",{n:0,u:0}),w=K.u-Date.now();if(w>0)return`Try again in ${Math.ceil(w/1000)}s`;
     if(await hashPin(v,P.s)===P.h){sv("tj_lk",{n:0,u:0});return true}
     K.n++;if(K.n>=5){K.u=Date.now()+30000;K.n=0}sv("tj_lk",K);return"Wrong passcode"});
+  try{sessionStorage.setItem("tj_unl",Date.now())}catch(e){}
 }
 async function changePin(){
   const P=ld("tj_pin",null),c=await askPin({title:"Current passcode",cancel:true},async v=>(await hashPin(v,P.s))===P.h||"Wrong passcode");
@@ -447,7 +448,13 @@ async function changePin(){
 let hid=0;
 document.addEventListener("visibilitychange",()=>{if(document.hidden){hid=Date.now();return}
   if(hid&&Date.now()-hid>6e5&&ld("tj_pin",null)&&!$("#lock").classList.contains("on")){unlockFlow().then(()=>{lockHide();snd("unlock")})}});
-async function boot(){if(!ld("tj_pin",null)){await authGate();await setupPin()}else{await unlockFlow();lockHide();await authGate()}lockHide();snd("unlock");render();enter();applyLang();startSync()}
+async function boot(){
+  const hasPin=!!ld("tj_pin",null),recent=()=>{try{return Date.now()-(+sessionStorage.getItem("tj_unl")||0)<18e5}catch(e){return false}};
+  if(!hasPin)await setupPin();else if(!recent())await unlockFlow();
+  try{sessionStorage.setItem("tj_unl",Date.now())}catch(e){}
+  render();enter();applyLang();
+  await authGate();
+  lockHide();snd("unlock");render();applyLang();startSync()}
 
 /* ================= dialogs / settings ================= */
 function askText(title,ph){return new Promise(res=>{
@@ -522,10 +529,12 @@ function openSessions(){
 }
 const NEWS_URLS=["https://nfs.faireconomy.media/ff_calendar_thisweek.json","https://nfs.faireconomy.media/ff_calendar_nextweek.json"];
 let newsTry=0;
+async function fetchLocalNews(){try{const r=await fetch("news.json?t="+Date.now(),{cache:"no-store"});if(!r.ok)return null;const j=await r.json();return Array.isArray(j)?j:null}catch(e){return null}}
 async function fetchNews(u){for(const x of [u,"https://api.allorigins.win/raw?url="+encodeURIComponent(u),"https://corsproxy.io/?url="+encodeURIComponent(u)]){try{const c=new AbortController(),t=setTimeout(()=>c.abort(),8000);const r=await fetch(x,{signal:c.signal});clearTimeout(t);if(!r.ok)continue;const j=await r.json();if(Array.isArray(j))return j}catch(e){}}return null}
 async function loadNews(force){const c=ld("tj_news",null);if(c&&!force&&Date.now()-c.ts<108e5&&(c.list.some(e=>e.t>Date.now())||Date.now()-c.ts<18e5))return{list:c.list,ts:c.ts};
   const list=[];let ok=false;newsTry=Date.now();
-  for(const u of NEWS_URLS){try{const j=await fetchNews(u);if(!j)continue;ok=true;j.forEach(e=>{const t=Date.parse(e.date);if(t)list.push({t,title:e.title,cur:e.country,imp:e.impact,fc:e.forecast||"",pv:e.previous||""})})}catch(e){}}
+  const lj=await fetchLocalNews(),SRC=lj&&lj.length?[null]:NEWS_URLS;
+  for(const u of SRC){try{const j=u===null?lj:await fetchNews(u);if(!j)continue;ok=true;j.forEach(e=>{const t=Date.parse(e.date);if(t)list.push({t,title:e.title,cur:e.country,imp:e.impact,fc:e.forecast||"",pv:e.previous||""})})}catch(e){}}
   if(ok){list.sort((a,b)=>a.t-b.t);sv("tj_news",{ts:Date.now(),list});return{list,ts:Date.now()}}
   return c?{list:c.list,ts:c.ts,stale:true}:null}
 let nflt="High";
@@ -656,10 +665,13 @@ function authScreen(canCancel){return new Promise(res=>{
 })}
 async function authGate(){
   if(!CLOUD)return;
+  const cached=ld("tj_cu",null);
+  if(cached){CU=cached;CLOUD.user().then(u=>{if(u){CU=u;sv("tj_cu",u)}}).catch(()=>{});return}
   try{CU=await CLOUD.user()}catch(e){CU=null}
   if(CU){sv("tj_cu",CU);return}
   localStorage.removeItem("tj_cu");
   if(ld("tj_skip",false)&&!FBC.require)return;
+  lockHide();
   await authScreen(false);
 }
 function accCard(){const s=syn();return`<section class="card"><h2 style="margin-bottom:6px">Account</h2>`+(CU?`<div class="sub" style="margin-bottom:10px"><span>Signed in as</span> <b>${esc(CU.username)}</b>${s.t?`<br><span>Last synced</span> ${esc(new Date(s.t).toLocaleString())}`:""}${s.dirty?`<br><span>Changes waiting to sync</span>`:""}</div><div class="row"><button class="pill o" id="async" style="flex:1">Sync now</button><button class="pill d" id="aout" style="flex:1">Sign out</button></div>`:`<div class="sub" style="margin-bottom:10px">Sign in to open your journal on any phone.</div><button class="pill l" id="ain" style="width:100%">Sign in / Create account</button>`)+`</section>`}
