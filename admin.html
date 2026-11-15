@@ -6,38 +6,71 @@ body{margin:0;padding:18px 14px 60px;background:#0b1105;color:#f4f7ea;font:14px/
 h1{font-size:20px;margin:0 0 14px;color:#d4f53c}h2{font-size:15px;margin:18px 0 8px}
 .c{background:#141c08;border:1px solid #2a3a10;border-radius:16px;padding:14px;margin-bottom:12px}
 input,textarea{width:100%;background:#0b1105;border:1px solid #2a3a10;border-radius:10px;color:#f4f7ea;padding:10px;margin:4px 0;font:inherit}
-button{background:#d4f53c;color:#141a05;border:0;border-radius:999px;padding:11px 18px;font-weight:700;font:inherit;font-weight:700;cursor:pointer}
-button.o{background:transparent;color:#f4f7ea;border:1px solid #2a3a10}button.d{background:#5a1d1d;color:#fff}
+textarea{min-height:80px;resize:vertical}
+button{background:#d4f53c;color:#141a05;border:0;border-radius:999px;padding:11px 18px;font:inherit;font-weight:700;cursor:pointer}
+button.o{background:transparent;color:#f4f7ea;border:1px solid #2a3a10}button.d{background:#5a1d1d;color:#fff}button.s2{padding:7px 12px;font-size:12px}
 .g{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.n{font-size:28px;font-weight:800;color:#d4f53c}.s{color:#9aa88a;font-size:12px}
-.e{color:#ff7b7b;min-height:18px}.r{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-top:1px solid #22300d}
+.e{color:#ff7b7b;min-height:18px}.r{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-top:1px solid #22300d}
 label.k{display:flex;gap:8px;align-items:center;margin:6px 0}label.k input{width:auto}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:6px 0}
+.sl{aspect-ratio:1;border:1px dashed #3a4f18;border-radius:12px;position:relative;overflow:hidden}
+.sl img{width:100%;height:100%;object-fit:cover;display:block}
+.sl label{width:100%;height:100%;display:grid;place-items:center;font-size:28px;color:#9aa88a;cursor:pointer}
+.sl .x{position:absolute;top:4px;right:4px;width:26px;height:26px;padding:0;border-radius:50%;background:#000b;color:#fff}
+.em{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0}.em button{background:#0b1105;border:1px solid #2a3a10;border-radius:10px;padding:4px 8px;font-size:18px;color:#fff}
+.lg{display:flex;align-items:center;gap:8px;margin:6px 0}.lg img{width:40px;height:40px;border-radius:10px;object-fit:cover}.lb{display:inline-block;padding:7px 12px;border-radius:999px;border:1px solid #2a3a10;cursor:pointer;font-size:12px;font-weight:700}
+.dt{background:#0b1105;border:1px solid #22300d;border-radius:12px;padding:10px;margin:0 0 8px;font-size:13px;line-height:1.6}.s2l{color:#9aa88a;font-size:12px;padding:3px 0;border-top:1px solid #1b270b}
+.r{cursor:pointer}
+.b{color:#ff7b7b;font-size:11px;border:1px solid #5a1d1d;border-radius:99px;padding:2px 8px;margin-left:6px}
 </style></head><body><div id="app">Loading…</div>
 <script src="config.js"></script>
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import{getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged}from"https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-import{getFirestore,collection,getDocs,getDoc,doc,setDoc}from"https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import{getFirestore,collection,getDocs,getDoc,doc,setDoc,deleteDoc,query,orderBy,limit}from"https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 const FB=window.TJ_FIREBASE||{},ADM="yt7admin@tjournal.app",$=s=>document.querySelector(s),R=$("#app");
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 if(!FB.apiKey){R.textContent="Firebase keys are missing in config.js"}else{
-const app=initializeApp(FB),auth=getAuth(app),db=getFirestore(app);let ads=[],users=[];
+const app=initializeApp(FB),auth=getAuth(app),db=getFirestore(app);let ads=[],users=[],blocked=new Set(),removed=[],open=null,sess={};
 const login=m=>{R.innerHTML=`<h1>YT7 Admin</h1><div class="c"><input id="u" placeholder="Admin username" autocapitalize="none" autocomplete="username"><input id="p" type="password" placeholder="Password" autocomplete="current-password"><div class="e">${m||""}</div><button id="go">Sign in</button></div>`;
  $("#go").onclick=async()=>{try{await signInWithEmailAndPassword(auth,$("#u").value.trim().toLowerCase()+"@tjournal.app",$("#p").value)}catch(e){login("Wrong username or password")}}};
 onAuthStateChanged(auth,u=>{if(!u)return login();if(u.email!==ADM){R.innerHTML=`<h1>YT7 Admin</h1><div class="c">This account is not the admin.<br><br><button id="so">Sign out</button></div>`;$("#so").onclick=()=>signOut(auth);return}dash()});
+const EM=["📢","🔥","🎓","💰","📈","📊","💎","🚀","⭐","🎁","🏆","📚","💡","🎯","⚡","🧠","💼","🤝","🛒","📱","🎬","✨","🪙","🏦"];
+const dur=s=>{s=Math.round(s||0);if(s<60)return s+"s";const h=Math.floor(s/3600),m=Math.floor(s%3600/60);return(h?h+"h ":"")+m+"m"},fdl=v=>v?new Date(v).toLocaleString([], {dateStyle:"medium",timeStyle:"short"}):"-";
+const lgIn=(a,i)=>a.logo?`<img src="${a.logo}" alt=""><button type="button" class="o s2" data-rl="${i}">Remove logo</button>`:`<label class="o s2 lb">Upload logo / icon image<input type="file" accept="image/*" hidden data-logo="${i}"></label>`;
+const sq=(f,Z=640,Q=.72)=>new Promise((ok,no)=>{const im=new Image,u=URL.createObjectURL(f);im.onload=()=>{const s=Math.min(im.width,im.height),c=document.createElement("canvas");c.width=c.height=Z;c.getContext("2d").drawImage(im,(im.width-s)/2,(im.height-s)/2,s,s,0,0,Z,Z);URL.revokeObjectURL(u);ok(c.toDataURL("image/jpeg",Q))};im.onerror=no;im.src=u});
 async function dash(){R.textContent="Loading…";users=[];
- try{(await getDocs(collection(db,"users"))).forEach(d=>users.push(d.data()))}catch(e){R.innerHTML=`<div class="c e">Could not read users: ${esc(e.message)}<br>Check the Firestore rules.</div>`;return}
+ try{(await getDocs(collection(db,"users"))).forEach(d=>users.push({id:d.id,...d.data()}));blocked=new Set();(await getDocs(collection(db,"blocked"))).forEach(d=>blocked.add(d.id))}catch(e){R.innerHTML=`<div class="c e">Could not read users: ${esc(e.message)}<br>Check the Firestore rules.</div>`;return}
  try{const s=await getDoc(doc(db,"config","ads"));ads=s.exists()?JSON.parse(s.data().json):[]}catch(e){ads=[]}
- view()}
+ await Promise.all(ads.map(async a=>{a.imgs=[null,null,null];for(let s=0;s<(a.n||0);s++){try{const g=await getDoc(doc(db,"adimg",a.id+"_"+s));if(g.exists())a.imgs[s]=g.data().d}catch(e){}}}));
+ removed=[];view()}
+const slotIn=(a,i,s)=>a.imgs[s]?`<img src="${a.imgs[s]}" alt=""><button class="x" data-rm="${i},${s}">×</button>`:`<label>+<input type="file" accept="image/*" hidden data-i="${i}" data-s="${s}"></label>`;
+const det=u=>{const S=sess[u.id]||[];return`<div class="dt"><div>Registered: <b>${fdl(u.createdAt)}</b></div><div>Last seen: <b>${fdl(u.lastSeen)}</b></div><div>Total time in app: <b>${dur(u.totalSec)}</b> · last ${S.length} sessions:</div>${S.map(x=>`<div class="s2l">${fdl(x.start)} → ${new Date(x.end).toLocaleTimeString([],{timeStyle:"short"})} · ${dur(x.sec)}</div>`).join("")||'<div class="s">No sessions recorded yet.</div>'}</div>`};
+async function openU(id){if(open===id){open=null;view();return}open=id;if(!sess[id]){try{sess[id]=(await getDocs(query(collection(db,"users",id,"sessions"),orderBy("start","desc"),limit(30)))).docs.map(d=>d.data())}catch(e){sess[id]=[]}}view()}
 function view(){const n=Date.now(),t0=new Date().setHours(0,0,0,0),U=users.slice().sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
- const st=(a,b)=>`<div class="c"><div class="n">${a}</div><div class="s">${b}</div></div>`,fd=v=>v?new Date(v).toLocaleString([], {dateStyle:"short",timeStyle:"short"}):"-";
+ const st=(a,b)=>`<div class="c"><div class="n">${a}</div><div class="s">${b}</div></div>`,fd=v=>v?new Date(v).toLocaleString([], {dateStyle:"short",timeStyle:"short"}):"-",F=(i,k,p,v)=>`<input data-i="${i}" data-k="${k}" placeholder="${p}" value="${esc(v)}">`;
  R.innerHTML=`<h1>YT7 Admin</h1><div class="g">${st(users.length,"Total users")}${st(users.filter(u=>(u.createdAt||0)>=t0).length,"New today")}${st(users.filter(u=>(u.lastSeen||0)>n-864e5).length,"Active (24h)")}${st(users.filter(u=>(u.lastSeen||0)>n-6048e5).length,"Active (7 days)")}</div>
- <h2>Ads</h2>${ads.map((a,i)=>`<div class="c"><input data-i="${i}" data-k="title" placeholder="Title" value="${esc(a.title)}"><input data-i="${i}" data-k="text" placeholder="Short text" value="${esc(a.text)}"><input data-i="${i}" data-k="icon" placeholder="Icon (emoji or image path)" value="${esc(a.icon)}"><input data-i="${i}" data-k="image" placeholder="Big image URL or path (optional)" value="${esc(a.image)}"><input data-i="${i}" data-k="link" placeholder="Link https://… (optional)" value="${esc(a.link)}"><input data-i="${i}" data-k="linkText" placeholder="Button text (optional)" value="${esc(a.linkText)}"><input data-i="${i}" data-k="until" placeholder="Hide after date YYYY-MM-DD (optional)" value="${esc(a.until)}"><label class="k"><input type="checkbox" data-i="${i}" data-k="featured" ${a.featured?"checked":""}> Show on Home strip</label><button class="d" data-del="${i}">Delete</button></div>`).join("")||`<div class="s">No ads yet.</div>`}
+ <h2>Ads (${ads.length})</h2><div class="s">Add as many ads as you like. Tick “Show on Home strip” on several to make them rotate.</div>${ads.map((a,i)=>`<div class="c">${F(i,"title","Business / brand name",a.title)}${F(i,"icon","Emoji (or pick below)",a.icon)}<div class="em">${EM.map(e=>`<button type="button" data-em="${i}|${e}">${e}</button>`).join("")}</div><div class="lg" id="lg-${i}">${lgIn(a,i)}</div><textarea data-i="${i}" data-k="text" placeholder="Description">${esc(a.text)}</textarea><div class="s">Photos (up to 3, cropped square automatically)</div><div class="g3">${[0,1,2].map(s=>`<div class="sl" id="sl-${i}-${s}">${slotIn(a,i,s)}</div>`).join("")}</div>${F(i,"video","Video link (YouTube / Facebook…) optional",a.video)}${F(i,"link","Link https://… optional",a.link)}${F(i,"linkText","Button text optional",a.linkText)}${F(i,"until","Hide after date YYYY-MM-DD optional",a.until)}<label class="k"><input type="checkbox" data-i="${i}" data-k="featured" ${a.featured?"checked":""}> Show on Home strip</label><button class="d" data-del="${i}">Delete ad</button></div>`).join("")||`<div class="s">No ads yet.</div>`}
  <div style="display:flex;gap:8px;margin:10px 0"><button class="o" id="add">+ Add ad</button><button id="save">Save ads</button></div><div class="s" id="msg"></div>
- <h2>Users (${U.length})</h2><div class="c">${U.slice(0,200).map(u=>`<div class="r"><b>${esc(u.username)}</b><span class="s">joined ${fd(u.createdAt)} · seen ${fd(u.lastSeen)}</span></div>`).join("")||'<div class="s">No users yet.</div>'}</div>
+ <h2>Users (${U.length}) <span class="s">· tap a user for details</span></h2><div class="c">${U.slice(0,200).map(u=>`<div class="r" data-u="${u.id}"><div><b>${esc(u.username)}</b>${blocked.has(u.id)?'<span class="b">blocked</span>':""}<div class="s">joined ${fd(u.createdAt)} · ⏱ ${dur(u.totalSec)}</div></div>${u.username==="yt7admin"?"":`<button class="${blocked.has(u.id)?"o":"d"} s2" data-blk="${u.id}">${blocked.has(u.id)?"Unblock":"Block"}</button>`}</div>${open===u.id?det(u):""}`).join("")||'<div class="s">No users yet.</div>'}</div>
  <button class="o" id="so">Sign out</button>`;
- $("#add").onclick=()=>{ads.unshift({title:"",text:"",icon:"📢",date:new Date().toISOString().slice(0,10),featured:!ads.length});view()};
+ $("#add").onclick=()=>{ads.unshift({title:"",text:"",icon:"📢",imgs:[null,null,null],date:new Date().toISOString().slice(0,10),featured:!ads.length});view()};
  $("#so").onclick=()=>signOut(auth);
- document.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{ads.splice(+b.dataset.del,1);view()});
- $("#save").onclick=async()=>{const m=$("#msg");try{await setDoc(doc(db,"config","ads"),{json:JSON.stringify(ads),updated:Date.now()});m.textContent="Saved ✓ (the app shows it next time it opens)"}catch(e){m.textContent="Save failed: "+e.message}}}
-R.oninput=R.onchange=e=>{const t=e.target;if(t.dataset&&t.dataset.k!==undefined)ads[+t.dataset.i][t.dataset.k]=t.type==="checkbox"?t.checked:t.value}}
+ document.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{if(!confirm("Delete this ad?"))return;const a=ads.splice(+b.dataset.del,1)[0];if(a.id)removed.push(a.id);view()});
+ document.querySelectorAll("[data-blk]").forEach(b=>b.onclick=async()=>{const id=b.dataset.blk,u=users.find(x=>x.id===id);try{if(blocked.has(id)){await deleteDoc(doc(db,"blocked",id));blocked.delete(id)}else{if(!confirm("Block "+u.username+"?"))return;await setDoc(doc(db,"blocked",id),{username:u.username,at:Date.now()});blocked.add(id)}view()}catch(e){alert(e.message)}});
+ $("#save").onclick=async()=>{const m=$("#msg");m.textContent="Saving…";try{
+  for(const id of removed)for(let s=0;s<3;s++)await deleteDoc(doc(db,"adimg",id+"_"+s));removed=[];
+  for(const a of ads){a.id=a.id||"a"+Date.now().toString(36)+Math.random().toString(36).slice(2,5);const im=(a.imgs||[]).filter(Boolean);
+   if(a._chg){for(let s=0;s<3;s++){if(im[s]){if(im[s].length>900000)throw new Error("Image too large");await setDoc(doc(db,"adimg",a.id+"_"+s),{d:im[s]})}else await deleteDoc(doc(db,"adimg",a.id+"_"+s))}a._chg=false}
+   a.imgs=[im[0]||null,im[1]||null,im[2]||null];a.n=im.length}
+  await setDoc(doc(db,"config","ads"),{json:JSON.stringify(ads.map(({id,title,text,icon,logo,link,linkText,video,date,until,featured,n})=>({id,title,text,icon,logo,link,linkText,video,date,until,featured,n}))),updated:Date.now()});
+  view();$("#msg").textContent="Saved ✓ (the app shows it next time it opens)"}catch(e){m.textContent="Save failed: "+e.message}}}
+R.onclick=e=>{const rw=e.target.closest("[data-u]");if(rw&&!e.target.closest("button")){openU(rw.dataset.u);return}
+ const em=e.target.closest("[data-em]");if(em){const[i,c]=em.dataset.em.split("|");ads[+i].icon=c;ads[+i].logo=null;document.querySelector(`input[data-i="${i}"][data-k="icon"]`).value=c;$("#lg-"+i).innerHTML=lgIn(ads[+i],+i);return}
+ const rl=e.target.closest("[data-rl]");if(rl){const i=+rl.dataset.rl;ads[i].logo=null;$("#lg-"+i).innerHTML=lgIn(ads[i],i);return}
+ const b=e.target.closest("[data-rm]");if(!b)return;const[i,s]=b.dataset.rm.split(",").map(Number);ads[i].imgs[s]=null;ads[i]._chg=true;$("#sl-"+i+"-"+s).innerHTML=slotIn(ads[i],i,s)};
+R.oninput=R.onchange=async e=>{const t=e.target;if(!t.dataset)return;
+ if(t.dataset.k!==undefined){ads[+t.dataset.i][t.dataset.k]=t.type==="checkbox"?t.checked:t.value;return}
+ if(t.type==="file"&&e.type==="change"&&t.files[0]&&t.dataset.logo!==undefined){const i=+t.dataset.logo;try{ads[i].logo=await sq(t.files[0],128,.8);$("#lg-"+i).innerHTML=lgIn(ads[i],i)}catch(x){alert("Could not read the image")}return}
+ if(t.type==="file"&&e.type==="change"&&t.files[0]){const i=+t.dataset.i,s=+t.dataset.s;try{ads[i].imgs[s]=await sq(t.files[0]);ads[i]._chg=true;$("#sl-"+i+"-"+s).innerHTML=slotIn(ads[i],i,s)}catch(x){alert("Could not read the image")}}}}
 </script></body></html>
