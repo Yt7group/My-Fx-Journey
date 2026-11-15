@@ -6,7 +6,7 @@ const pad=n=>String(n).padStart(2,"0"),dk=d=>d.getFullYear()+"-"+pad(d.getMonth(
 const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
 const CUR=["$","ETB"],FXK="tj_fx_v1";
 let allTrades=ld("tj_trades_v1",[]),allFlows=ld("tj_flows_v1",[]),trades=[],flows=[],set=Object.assign({bal:1000,cur:"$",risk:1,unit:"R",maxT:2,theme:"",lang:"en",snd:true,tg:{v:0,u:"%"}},ld("tj_set_v1",{}));
-let lists=Object.assign({pairs:["EURUSD","GBPUSD","USDJPY","XAUUSD","AUDUSD","USDCAD","NZDUSD","USDCHF"],sess:["London","New York","Asia","Outside killzone"]},ld("tj_lists_v1",{}));lists.sess=["Asia","London","New York"];if(!lists.models)lists.models=["Sweep + CHoCH + FVG","Sweep + CHoCH + OB","Rejection candle","Break & Retest","Other"];
+let lists=Object.assign({pairs:["EURUSD","GBPUSD","USDJPY","XAUUSD","AUDUSD","USDCAD","NZDUSD","USDCHF"],sess:["London","New York","Asia","Outside killzone"]},ld("tj_lists_v1",{}));lists.sess=["Asia","London","New York"];if(!lists.models)lists.models=["Sweep + CHoCH + FVG","Sweep + CHoCH + OB","Rejection candle","Break & Retest","Other"];if(!lists.tfs)lists.tfs=["M1","M5","M15","M30","H1","H4","D1","W1"];
 let tab="home",rng=0,view=new Date(),sel=dk(new Date()),flt="all",cp,dirty=false;view.setDate(1);
 const AK=["bal","cur","risk","maxT","tg"],COL=["#d4f53c","#ffffff","#ffb86b","#7aa7ff","#ff8fa3"];
 let AC=ld("tj_acc_v1",null);
@@ -130,12 +130,12 @@ function home(){
   $("#rec").innerHTML=`<div class="row sp" style="margin-bottom:4px"><h2>Recent Trades</h2><button class="chip" id="seeall">See all</button></div>`+(rc.length?rc.map(row).join(""):`<div class="empty">No trades yet. Tap +.</div>`);
   $("#seeall").onclick=()=>goTab("jr");bindRows("#rec");
   const grp=k=>{const m={};trades.forEach(t=>{m[t[k]]=(m[t[k]]||0)+t.r});return Object.entries(m).sort((a,b)=>b[1]-a[1])};
-  const S=grp("sess"),M=grp("model"),E=grp("emo"),bc=trades.filter(t=>!t.rules).reduce((a,t)=>a+t.r,0);
+  const S=grp("sess"),M=grp("model"),T=grp("tf").filter(([k])=>k&&k!=="undefined"),E=grp("emo"),bc=trades.filter(t=>!t.rules).reduce((a,t)=>a+t.r,0);
   $("#ins").innerHTML=n<3?`<div class="empty">Insights appear after 3 trades.</div>`:[
    ["Best session",S[0]?`${esc(S[0][0])} <b class="${cls(S[0][1])}">${fr(S[0][1])}</b>`:"-"],
    ["Best entry model",M[0]?`${esc(M[0][0])} <b class="${cls(M[0][1])}">${fr(M[0][1])}</b>`:"-"],
    ["Costliest emotion",E.length?`${esc(E[E.length-1][0])} <b class="${cls(E[E.length-1][1])}">${fr(E[E.length-1][1])}</b>`:"-"],
-   ["R from rule-breaking trades",`<b class="${cls(bc)}">${fr(bc)}</b>`]
+   ["Best timeframe",T[0]?`${esc(T[0][0])} <b class="${cls(T[0][1])}">${fr(T[0][1])}</b>`:"-"]
   ].map(([a,b])=>`<div class="ins"><span class="sub" style="font-size:12px">${a}</span><span>${b}</span></div>`).join("");
 }
 function smooth(p){let d=`M${p[0][0]},${p[0][1]}`;for(let i=0;i<p.length-1;i++){const a=p[i-1]||p[i],b=p[i],c=p[i+1],e=p[i+2]||c,t=.17;d+=`C${b[0]+(c[0]-a[0])*t},${b[1]+(c[1]-a[1])*t} ${c[0]-(e[0]-b[0])*t},${c[1]-(e[1]-b[1])*t} ${c[0]},${c[1]}`}return d}
@@ -247,7 +247,7 @@ function calcInit(){
   $("#cp_add").onclick=async()=>{const v=await addItem("pairs");if(v){calcInit();$("#cp_pair").value=v;run()}};
   getRate().then(run);run();
 }
-async function addItem(kind){const lb={pairs:["New pair","e.g. EURJPY, BTCUSD"],models:["New entry model","e.g. Order block + SMT"]}[kind],n=((await askText(lb[0],lb[1]))||"").trim();if(!n)return null;const v=kind==="pairs"?n.toUpperCase().replace(/[^A-Z0-9]/g,""):n.slice(0,30);if(!v)return null;const L=lists[kind];if(!L.includes(v)){if(kind==="models"&&L.includes("Other"))L.splice(L.indexOf("Other"),0,v);else L.push(v);sv("tj_lists_v1",lists);markDirty()}return v}
+async function addItem(kind){const lb={pairs:["New pair","e.g. EURJPY, BTCUSD"],models:["New entry model","e.g. Order block + SMT"],tfs:["New timeframe","e.g. M10, H2"]}[kind],n=((await askText(lb[0],lb[1]))||"").trim();if(!n)return null;const v=kind==="pairs"?n.toUpperCase().replace(/[^A-Z0-9]/g,""):kind==="tfs"?n.toUpperCase().replace(/\s+/g,"").slice(0,6):n.slice(0,30);if(!v)return null;const L=lists[kind];if(!L.includes(v)){if(kind==="models"&&L.includes("Other"))L.splice(L.indexOf("Other"),0,v);else L.push(v);sv("tj_lists_v1",lists);markDirty()}return v}
 
 /* ---------- Currency conversion ---------- */
 async function openConvert(to){
@@ -305,6 +305,7 @@ function openTrade(id){
   <label>Pair<div class="sel"><select name="pair">${opts(lists.pairs,o("pair","EURUSD"))}</select><button type="button" class="plus" data-add="pairs" aria-label="Add pair">+</button></div></label>
   <label>Session<div class="sel"><select name="sess">${opts(lists.sess,o("sess","London"))}</select></div></label>
   <label class="full">Entry model<div class="sel"><select name="model">${opts(lists.models,o("model","Sweep + CHoCH + FVG"))}</select><button type="button" class="plus" data-add="models" aria-label="Add entry model">+</button></div></label>
+  <label class="full">Timeframe<div class="sel"><select name="tf">${opts(lists.tfs,o("tf","M15"))}</select><button type="button" class="plus" data-add="tfs" aria-label="Add timeframe">+</button></div></label>
   <label>Entry<input name="entry" type="number" step="any" inputmode="decimal" value="${o("entry","")}"></label><label>Stop loss<input name="sl" type="number" step="any" inputmode="decimal" value="${o("sl","")}"></label>
   <label>Take profit<input name="tp" type="number" step="any" inputmode="decimal" value="${o("tp","")}"></label><label>Exit<input name="exit" type="number" step="any" inputmode="decimal" value="${o("exit","")}"></label>
   <label>Result (R) · auto<input name="r" type="number" step="any" readonly tabindex="-1" placeholder="Auto" value="${o("r","")}"></label><label>Risk %<input name="risk" type="number" step="any" inputmode="decimal" value="${o("risk",set.risk)}"></label>
@@ -325,7 +326,7 @@ function openTrade(id){
   ["entry","sl","exit","dir","pair","risk"].forEach(n=>F[n].addEventListener("input",()=>{if(!/^(pair|risk)$/.test(n))touched=true;au()}));au();getRate().then(au);
   F.risk.addEventListener("input",()=>{const p=parseFloat(F.risk.value);F.ramt.value=isFinite(p)&&cp.bal>0?r2(p/100*cp.bal):""});
   F.ramt.addEventListener("input",()=>{const m=parseFloat(F.ramt.value);F.risk.value=isFinite(m)&&cp.bal>0?+(m/cp.bal*100).toFixed(3):"";au()});
-  $$("#f [data-add]").forEach(b=>b.onclick=async()=>{const k=b.dataset.add,v=await addItem(k);if(!v)return;const s=F[k==="pairs"?"pair":"model"];s.innerHTML=opts(lists[k],v);s.value=v;au()});
+  $$("#f [data-add]").forEach(b=>b.onclick=async()=>{const k=b.dataset.add,v=await addItem(k);if(!v)return;const s=F[k==="pairs"?"pair":k==="tfs"?"tf":"model"];s.innerHTML=opts(lists[k],v);s.value=v;au()});
   const th=async()=>{let h="";const bl=[];for(const k of imgs){const b=fresh[k]||await idbGet(k);if(b)bl.push(b),h+=`<div class="th"><img src="${URL.createObjectURL(b)}" alt=""><button type="button" data-rm="${k}">✕</button></div>`}$("#thumbs").innerHTML=h;$$("#thumbs .th img").forEach((im,i)=>im.onclick=()=>showBlobs(bl,i));$$("#thumbs [data-rm]").forEach(x=>x.onclick=()=>{imgs=imgs.filter(i=>i!==x.dataset.rm);delete fresh[x.dataset.rm];th()})};
   th();
   $("#ti").onchange=async e=>{for(const f of [...e.target.files]){if(imgs.length>=4){toast("Max 4 images");break}const b=await shrink(f);if(b){const k="i"+Date.now()+Math.random().toString(36).slice(2,6);fresh[k]=b;imgs.push(k)}}e.target.value="";th()};
@@ -336,7 +337,7 @@ function openTrade(id){
     if(!t&&trades.filter(x=>x.date===v("date")).length>=set.maxT&&!confirm(tx("You've reached the max trades for this day. Add anyway?")))return;
     for(const k of imgs)if(fresh[k])await idbPut(k,fresh[k]);
     for(const k of orig)if(!imgs.includes(k))await idbDel(k);
-    const n={id:id||Date.now(),date:v("date"),pair:v("pair"),dir:v("dir"),model:v("model"),sess:v("sess"),entry:nm("entry"),sl:nm("sl"),tp:nm("tp"),exit:nm("exit"),r:nm("r"),risk:nm("risk"),lot:nm("lot"),emo:v("emo"),rules:F.rules.checked,note:v("note").trim(),shot:safeUrl(v("shot")),imgs};
+    const n={id:id||Date.now(),date:v("date"),pair:v("pair"),dir:v("dir"),model:v("model"),tf:v("tf"),sess:v("sess"),entry:nm("entry"),sl:nm("sl"),tp:nm("tp"),exit:nm("exit"),r:nm("r"),risk:nm("risk"),lot:nm("lot"),emo:v("emo"),rules:F.rules.checked,note:v("note").trim(),shot:safeUrl(v("shot")),imgs};
     n.acc=t?t.acc:accA().id;allTrades=id?allTrades.map(x=>x.id===id?n:x):[...allTrades,n];sel=n.date;saveAll();close();render();toast("Trade saved ✓")};
 }
 
@@ -357,7 +358,7 @@ function openFlow(sg){
 }
 
 /* ---------- wiring ---------- */
-function render(){scope();cp=compute();nav();hdr();try{paintAds()}catch(e){}$$("[data-tab]").forEach(m=>m.hidden=m.id!==tab);({home,cal:calr,jr,mo:more})[tab]()}
+function render(){scope();cp=compute();nav();hdr();try{paintAds()}catch(e){}try{$("#plb").style.display=tab==="jr"?"inline-flex":"none"}catch(e){}$$("[data-tab]").forEach(m=>m.hidden=m.id!==tab);({home,cal:calr,jr,mo:more})[tab]()}
 $$("[data-flow]").forEach(b=>b.onclick=()=>openFlow(+b.dataset.flow));
 $$("#rng .chip").forEach(b=>b.onclick=()=>{rng=+b.dataset.r;render()});
 $$("#flt .chip").forEach(b=>b.onclick=()=>{flt=b.dataset.f;render()});
@@ -454,7 +455,8 @@ async function boot(){
   try{sessionStorage.setItem("tj_unl",Date.now())}catch(e){}
   render();enter();applyLang();
   await authGate();
-  lockHide();snd("unlock");render();applyLang();startSync()}
+  if(localStorage.getItem("tj_blk")==="1")blkShow();checkBlocked();
+  lockHide();snd("unlock");render();applyLang();startSync();useTick();PLOK=true;setTimeout(plTick,1500)}
 
 /* ================= dialogs / settings ================= */
 function askText(title,ph){return new Promise(res=>{
@@ -582,7 +584,7 @@ addEventListener("popstate",()=>{const L=topLayer();
 if(window.visualViewport){const kb=()=>{const v=visualViewport,k=Math.max(0,Math.round(innerHeight-v.height-v.offsetTop));document.documentElement.style.setProperty("--kb",k+"px")};visualViewport.addEventListener("resize",kb);visualViewport.addEventListener("scroll",kb)}
 document.addEventListener("focusin",e=>{const el=e.target;if(el.matches&&el.matches("input:not([type=checkbox]):not([type=file]),textarea,select"))setTimeout(()=>el.scrollIntoView({block:"center",behavior:"smooth"}),320)});
 /* ================= v12: accounts (username + password) + cloud sync + biometric ================= */
-const FBC=window.TJ_FIREBASE||{},FB_ON=!!(FBC.apiKey||FBC.preview),SYNCK=["tj_trades_v1","tj_flows_v1","tj_set_v1","tj_acc_v1","tj_lists_v1"],EMD="@tjournal.app";
+const FBC=window.TJ_FIREBASE||{},FB_ON=!!(FBC.apiKey||FBC.preview),SYNCK=["tj_trades_v1","tj_flows_v1","tj_set_v1","tj_acc_v1","tj_lists_v1","tj_plans_v1"],EMD="@tjournal.app";
 const uname=s=>String(s||"").trim().toLowerCase(),uok=u=>/^[a-z0-9_.]{3,20}$/.test(u);
 const wt=(p,ms)=>Promise.race([p,new Promise((_,j)=>setTimeout(()=>j(Object.assign(new Error("timeout"),{code:"auth/network-request-failed"})),ms))]);
 const syn=()=>ld("tj_sync",{t:0,dirty:false});
@@ -597,12 +599,14 @@ function realCloud(){
     async signOut(){const f=await init();await f.au.signOut(f.auth)},
     async touch(id,name){const f=await init(),r=f.fs.doc(f.db,"users",id),s=await f.fs.getDoc(r),d=s.exists()?s.data():{};await f.fs.setDoc(r,{username:name,lastSeen:Date.now(),createdAt:d.createdAt||Date.now()},{merge:true});return d.dataT||0},
     async pull(id){const f=await init(),m=await f.fs.getDoc(f.fs.doc(f.db,"users",id)),t=m.exists()&&m.data().dataT||0;if(!t)return null;const q=await f.fs.getDocs(f.fs.collection(f.db,"users",id,"data")),data={};q.forEach(x=>data[x.id]=x.data().v);return{t,data}},
+    async session(id,sid,d,dl){const f=await init(),b=f.fs.writeBatch(f.db);b.set(f.fs.doc(f.db,"users",id,"sessions",sid),d,{merge:true});b.set(f.fs.doc(f.db,"users",id),{totalSec:f.fs.increment(dl),lastSeen:Date.now()},{merge:true});await b.commit()},
     async push(id,data,t){const f=await init(),b=f.fs.writeBatch(f.db);Object.entries(data).forEach(([k,v])=>b.set(f.fs.doc(f.db,"users",id,"data",k),{v}));b.set(f.fs.doc(f.db,"users",id),{dataT:t,lastSeen:Date.now()},{merge:true});await b.commit()}
   };
 }
 function mockCloud(){
   const U=()=>ld("tj_mock_users",{}),er=c=>Object.assign(new Error(c),{code:c}),mk=(u,id)=>{const s={uid:id,username:u};sv("tj_mock_sess",s);return s};
   return{
+    async session(){},
     async user(){return ld("tj_mock_sess",null)},
     async signUp(u,p){const m=U();if(m[u])throw er("auth/email-already-in-use");m[u]={h:await hashPin(p,u),id:"m"+Date.now()};sv("tj_mock_users",m);return mk(u,m[u].id)},
     async signIn(u,p){const m=U();if(!m[u]||m[u].h!==await hashPin(p,u))throw er("auth/invalid-credential");return mk(u,m[u].id)},
@@ -687,12 +691,24 @@ Object.assign(AM,{"Account":"አካውንት","Sign in":"ግባ","Create account
 /* ---------- Ads (edit ads.json on GitHub) ---------- */
 var AD=ld("tj_ads_v1",[]);
 function adUrl(u){u=String(u||"").trim();return/^(https?:\/\/[^\s"'<>]+|[\w\-.\/]+)$/.test(u)?u:""}
-function adsActive(){const n=Date.now();return(Array.isArray(AD)?AD:[]).filter(a=>a&&(a.title||a.text||a.image)&&!(a.until&&Date.parse(a.until+"T23:59:59")<n)).sort((a,b)=>(b.featured?1:0)-(a.featured?1:0)||String(b.date||"").localeCompare(String(a.date||"")))}
-function adIcon(a){const i=String(a.icon||"📢").trim();return/^(https?:\/\/|[\w\-.\/]+\.(png|jpe?g|webp|gif|svg))/i.test(i)&&adUrl(i)?`<img src="${esc(i)}" alt="">`:esc(i)}
-function paintAds(){const b=$("#adstrip");if(!b)return;const L=adsActive(),f=L[0];
-  b.innerHTML=`<span class="adi">${f?adIcon(f):"📢"}</span><span class="adt"><b>${esc(f?(f.title||tx("Ads")):tx("Ads"))}</b>${f&&f.text?`<small>${esc(f.text)}</small>`:""}</span><span class="adg ${f?"on":""}">${f?esc(L.length+" "+tx("ads")):esc(tx("No ads"))}</span>`}
+function adsActive(){const n=Date.now();return(Array.isArray(AD)?AD:[]).filter(a=>a&&(a.title||a.text||a.image||a.n)&&!(a.until&&Date.parse(a.until+"T23:59:59")<n)).sort((a,b)=>(b.featured?1:0)-(a.featured?1:0)||String(b.date||"").localeCompare(String(a.date||"")))}
+function adIcon(a){if(adOk(a.logo))return`<img src="${a.logo}" alt="">`;const i=String(a.icon||"📢").trim();return/^(https?:\/\/|[\w\-.\/]+\.(png|jpe?g|webp|gif|svg))/i.test(i)&&adUrl(i)?`<img src="${esc(i)}" alt="">`:esc(i)}
+var ADX=0;
+function paintAds(rot){const b=$("#adstrip");if(!b)return;const L=adsActive(),F=L.filter(a=>a.featured),P=F.length?F:L.slice(0,1),f=P[ADX%Math.max(1,P.length)];
+  b.innerHTML=`<span class="adi">${f?adIcon(f):"📢"}</span><span class="adt"><b>${esc(f?(f.title||tx("Ads")):tx("Ads"))}</b>${f&&f.text?`<small>${esc(f.text.split("\n")[0])}</small>`:""}</span><span class="adg ${f?"on":""}">${f?esc(L.length+" "+tx("ads")):esc(tx("No ads"))}</span>`;
+  if(rot){b.classList.remove("adfd");void b.offsetWidth;b.classList.add("adfd")}}
+setInterval(()=>{if(!document.hidden&&adsActive().filter(a=>a.featured).length>1){ADX++;paintAds(1)}},4500);
+var ADI={};
+const adOk=d=>/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(d||"");
+async function adImg(id,i){const k=id+"_"+i;if(ADI[k])return ADI[k];const f=window.TJ_FIREBASE||{};if(!f.projectId)return null;try{const r=await fetch(`https://firestore.googleapis.com/v1/projects/${f.projectId}/databases/(default)/documents/adimg/${k}?key=${f.apiKey}`);if(!r.ok)return null;const d=await r.json(),v=d.fields&&d.fields.d&&d.fields.d.stringValue;return adOk(v)?(ADI[k]=v):null}catch(e){return null}}
+async function fillCar(c,inline){const id=c.dataset.id,n=+c.dataset.n||0;let L=inline||(await Promise.all([...Array(n).keys()].map(i=>adImg(id,i)))).filter(Boolean);
+  if(!L.length){c.parentNode.remove();return}
+  c.innerHTML=L.map(d=>`<img src="${d}" alt="">`).join("");const w=c.parentNode,cnt=w.querySelector(".adcnt");
+  if(L.length>1){cnt.textContent="1/"+L.length;c.onscroll=()=>{cnt.textContent=(Math.round(c.scrollLeft/c.clientWidth)+1)+"/"+L.length}}else cnt.remove()}
 function openAds(){const L=adsActive();
-  openWin(tx("Ads"),L.length?L.map(a=>{const im=adUrl(a.image),lk=adUrl(a.link);return`<section class="card ad"><div class="adh"><span class="adi">${adIcon(a)}</span><div><b>${esc(a.title||"")}</b>${a.date?`<div class="sub">${esc(a.date)}</div>`:""}</div></div>${im?`<img class="adimg" src="${esc(im)}" alt="" loading="lazy">`:""}${a.text?`<div class="adx">${esc(a.text)}</div>`:""}${lk?`<a class="pill l adlk" href="${esc(lk)}" target="_blank" rel="noopener noreferrer">${esc(a.linkText||tx("Open link"))}</a>`:""}</section>`}).join(""):`<div class="empty">${esc(tx("No ads"))}</div>`)}
+  openWin(tx("Ads"),L.length?L.map((a,i)=>{const lk=adUrl(a.link),vd=adUrl(a.video),inl=Array.isArray(a.imgs)&&a.imgs.some(adOk),has=inl||(a.n>0&&a.id);
+    return`<section class="card ad"><div class="adh"><span class="adi">${adIcon(a)}</span><div><b>${esc(a.title||"")}</b>${a.date?`<div class="sub">${esc(a.date)}</div>`:""}</div></div>${has?`<div class="adw"><div class="adcar" data-id="${esc(a.id||"")}" data-n="${+a.n||0}" data-i="${i}"><div class="adph"></div></div><span class="adcnt"></span></div>`:""}${a.text?`<div class="adx">${esc(a.text)}</div>`:""}<div class="adbt">${vd?`<a class="pill adlk" href="${esc(vd)}" target="_blank" rel="noopener noreferrer">▶ ${esc(tx("Watch video"))}</a>`:""}${lk?`<a class="pill l adlk" href="${esc(lk)}" target="_blank" rel="noopener noreferrer">${esc(a.linkText||tx("Open link"))}</a>`:""}</div></section>`}).join(""):`<div class="empty">${esc(tx("No ads"))}</div>`);
+  document.querySelectorAll(".adcar").forEach(c=>{const a=L[+c.dataset.i];fillCar(c,Array.isArray(a.imgs)&&a.imgs.some(adOk)?a.imgs.filter(adOk):null)})}
 async function fsAds(){try{const k=window.TJ_FIREBASE||{};if(!k.projectId||!k.apiKey)return null;const r=await fetch(`https://firestore.googleapis.com/v1/projects/${k.projectId}/databases/(default)/documents/config/ads?key=${k.apiKey}`,{cache:"no-store"});if(!r.ok)return null;const d=await r.json(),j=d.fields&&d.fields.json&&d.fields.json.stringValue;return j?JSON.parse(j):null}catch(e){return null}}
 async function loadAds(){
   const fa=await fsAds();if(Array.isArray(fa)){AD=fa;sv("tj_ads_v1",AD)}else
@@ -702,5 +718,50 @@ async function loadAds(){
 $("#adstrip").onclick=openAds;loadAds();
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)loadAds()});setInterval(loadAds,6e5);
 Object.assign(AM,{"Accounts are not set up yet. Add your Firebase keys in config.js to enable Sign in / Sign out.":"አካውንት ገና አልተዋቀረም። Sign in / Sign out ለማብራት የ Firebase ቁልፎችን በ config.js ውስጥ ያስገቡ።","Ads":"ማስታወቂያ","ads":"ማስታወቂያዎች","No ads":"ማስታወቂያ የለም","Open link":"ክፈት","Notice":"ማሳሰቢያ","Photos you attach to trades are stored only on this phone. They are not synced to your account. If you clear the app data or uninstall the app, they will be lost.":"ከትሬዶች ጋር የሚያያይዟቸው ፎቶዎች የሚቀመጡት በዚህ ስልክ ላይ ብቻ ነው። ከአካውንትዎ ጋር አይመሳሰሉም። የ App ዳታውን ካጸዱ ወይም App ን ካጠፉት ፎቶዎቹ ይጠፋሉ።","Contact":"አግኙን","Have feedback or suggestions? Email us:":"አስተያየት ወይም ሃሳብ አለዎት? በኢሜል ይላኩልን፦","Lot size":"የሎት መጠን","Username (3–20 letters, numbers, . or _)":"የተጠቃሚ ስም (3–20 ፊደል፣ ቁጥር፣ . ወይም _)","Password (at least 6 characters)":"ፓስወርድ (ቢያንስ 6 ቁምፊ)","Confirm password (type it again)":"ፓስወርዱን አረጋግጥ (በድጋሚ ጻፍ)","No upcoming events yet. Next week's calendar is usually published over the weekend. Showing last week's events.":"ገና የሚመጡ ዜናዎች የሉም። የሚቀጥለው ሳምንት ካላንደር አብዛኛውን ጊዜ ቅዳሜና እሁድ ይለቀቃል። የባለፈው ሳምንት ዜናዎች እየታዩ ነው።"});
+
+/* ---------- Account block (set from the admin page) ---------- */
+function blkShow(){if($("#blk"))return;const d=document.createElement("div");d.id="blk";d.innerHTML=`<div class="blkb"><div class="blke">⛔</div><h2>${esc(tx("Account blocked"))}</h2><p>${esc(tx("Your account has been blocked by the admin. Contact:"))}<br><b>Yt7group@gmail.com</b></p><button class="pill l" id="blkc">${esc(tx("Check again"))}</button></div>`;document.body.appendChild(d);$("#blkc").onclick=checkBlocked}
+function blkHide(){const d=$("#blk");if(d)d.remove()}
+async function checkBlocked(){const f=window.TJ_FIREBASE||{};if(!CU||!f.projectId)return;try{const r=await fetch(`https://firestore.googleapis.com/v1/projects/${f.projectId}/databases/(default)/documents/blocked/${CU.uid}?key=${f.apiKey}`,{cache:"no-store"});if(r.status===200){localStorage.setItem("tj_blk","1");blkShow()}else if(r.status===404){localStorage.removeItem("tj_blk");blkHide()}}catch(e){}}
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)checkBlocked()});
+Object.assign(AM,{"Account blocked":"አካውንት ታግዷል","Your account has been blocked by the admin. Contact:":"አካውንትዎ በ admin ታግዷል። ያነጋግሩ፦","Check again":"እንደገና አረጋግጥ","Watch video":"ቪዲዮ ተመልከት"});
+
+/* ---------- Usage sessions (time in app, visible to the admin) ---------- */
+var USS=null;
+function useSave(){if(!USS||!CU||!CLOUD||!CLOUD.session)return;const n=Date.now(),dl=Math.max(0,Math.round((n-USS.last)/1e3));USS.last=n;USS.sec+=dl;CLOUD.session(CU.uid,USS.id,{start:USS.start,end:n,sec:USS.sec},dl).catch(()=>{})}
+function useTick(){if(document.hidden||!CU||!CLOUD||!CLOUD.session)return;if(!USS){const n=Date.now();USS={id:"s"+n.toString(36),start:n,last:n,sec:0}}useSave()}
+document.addEventListener("visibilitychange",()=>{if(document.hidden){useSave();USS=null}else useTick()});
+setInterval(useTick,18e4);
+
+/* ---------- Plans: future plans with a reminder (Journal tab) ---------- */
+var PLOK=false;
+const PLK="tj_plans_v1",PL=()=>ld(PLK,[]),plSave=l=>{sv(PLK,l);try{markDirty()}catch(e){}};
+const plFmt=t=>new Date(t).toLocaleString([],{weekday:"short",month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"});
+const plIso=d=>{const z=new Date(d);return z.getFullYear()+"-"+String(z.getMonth()+1).padStart(2,"0")+"-"+String(z.getDate()).padStart(2,"0")};
+function plIcs(p){const f=t=>new Date(t).toISOString().replace(/[-:]/g,"").replace(/\.\d+/,""),ics=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//YT7 Journal//EN","BEGIN:VEVENT","UID:"+p.id+"@yt7","DTSTAMP:"+f(Date.now()),"DTSTART:"+f(p.at),"DTEND:"+f(p.at+36e5),"SUMMARY:"+String(p.text).replace(/[\r\n,;]+/g," ").slice(0,80),"BEGIN:VALARM","TRIGGER:PT0M","ACTION:DISPLAY","DESCRIPTION:Plan reminder","END:VALARM","END:VEVENT","END:VCALENDAR"].join("\r\n"),a=document.createElement("a");a.href=URL.createObjectURL(new Blob([ics],{type:"text/calendar"}));a.download="plan.ics";document.body.appendChild(a);a.click();a.remove();toast("Calendar file ready")}
+function plList(){const L=PL().sort((a,b)=>a.at-b.at),n=Date.now(),ask=L.filter(p=>p.st==="pending"&&p.at<=n),up=L.filter(p=>p.st==="pending"&&p.at>n),hs=L.filter(p=>p.st!=="pending").reverse().slice(0,20);
+  const card=(p,btn)=>`<div class="pr" style="flex-wrap:wrap;align-items:flex-start"><div class="pm" style="flex:1 1 100%"><b style="white-space:normal">${esc(p.text)}</b><div class="ps" style="white-space:normal">${plFmt(p.at)}${p.alarm?" · ⏰":""}</div></div><div style="display:flex;gap:6px;flex-wrap:wrap;width:100%;margin-top:6px">${btn}</div></div>`,sec=(t,h)=>h?`<h2 style="margin:16px 0 8px">${esc(tx(t))}</h2>${h}`:"";
+  return sec("Needs your answer",ask.map(p=>card(p,`<button class="chip" data-pa="done|${p.id}">${esc(tx("Done ✓"))}</button><button class="chip" data-pa="missed|${p.id}">${esc(tx("Not done"))}</button><button class="chip" data-pa="later|${p.id}">${esc(tx("Later (1h)"))}</button>`)).join(""))
+   +sec("Upcoming",up.map(p=>card(p,`<button class="chip" data-pa="ics|${p.id}">📅 ${esc(tx("Phone alarm"))}</button><button class="chip" data-pa="del|${p.id}">🗑</button>`)).join(""))
+   +sec("History",hs.map(p=>card(p,`<span class="tg ${p.st==="done"?"w":"l"}">${esc(tx(p.st==="done"?"Done":"Missed"))}</span><button class="chip" data-pa="del|${p.id}">🗑</button>`)).join(""))
+   ||`<div class="empty">${esc(tx("No plans yet."))}</div>`}
+function paintPl(){const e=$("#plL");if(!e)return;e.innerHTML=plList();applyLang(e);
+  e.querySelectorAll("[data-pa]").forEach(b=>b.onclick=()=>{const[a,id]=b.dataset.pa.split("|"),L=PL(),p=L.find(x=>String(x.id)===id);if(!p)return;
+    if(a==="ics"){plIcs(p);return}
+    if(a==="del")plSave(L.filter(x=>String(x.id)!==id));else{if(a==="later"){p.at=Date.now()+36e5;p.nt=0}else p.st=a;plSave(L)}
+    paintPl()})}
+function openPlans(){const t0=plIso(Date.now());
+  openWin(tx("Plans"),`<section class="card"><h2 style="margin-bottom:8px">${esc(tx("New plan"))}</h2><textarea id="plt" rows="3" placeholder="${esc(tx("What will you do? e.g. review my losing trades"))}" style="width:100%"></textarea><div class="row" style="gap:6px;flex-wrap:wrap;margin:8px 0">${[["Today",0],["Tomorrow",1],["In 1 week",7],["In 1 month",30]].map(([l,d])=>`<button type="button" class="chip" data-q="${d}">${esc(tx(l))}</button>`).join("")}</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><label>${esc(tx("Date"))}<input id="pld" type="date" min="${t0}" value="${t0}"></label><label>${esc(tx("Time"))}<input id="plm" type="time" value="09:00"></label></div><label style="display:flex;gap:8px;align-items:center;margin:10px 0"><input id="pla" type="checkbox" checked style="width:auto"> ${esc(tx("Alarm (remind me)"))}</label><button class="pill l" id="pls" style="width:100%">${esc(tx("Save plan"))}</button></section><div id="plL"></div>`);
+  $$("[data-q]").forEach(b=>b.onclick=()=>{const d=new Date();d.setDate(d.getDate()+(+b.dataset.q));$("#pld").value=plIso(d)});
+  $("#pls").onclick=async()=>{const x=$("#plt").value.trim(),d=$("#pld").value,m=$("#plm").value||"09:00";if(!x){toast("Write your plan first");return}if(!d){toast("Pick a date");return}
+    const L=PL(),al=$("#pla").checked;L.push({id:Date.now(),text:x.slice(0,300),at:new Date(d+"T"+m).getTime(),alarm:al,st:"pending",nt:0});plSave(L);if(al)askNotif().catch(()=>{});$("#plt").value="";toast("Plan saved ✓");paintPl()};
+  paintPl()}
+function plAsk(p){open(`<div style="padding:4px 2px"><h2 style="font-size:16px">⏰ ${esc(tx("Plan reminder"))}</h2><div class="sub" style="margin:4px 0 10px">${esc(tx("You planned this for:"))} ${plFmt(p.at)}</div><p style="font-size:15px;margin:0 0 14px">${esc(p.text)}</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="pill l" data-x="done">${esc(tx("Done ✓"))}</button><button class="pill" data-x="missed" style="border-color:var(--line)">${esc(tx("Not done"))}</button><button class="pill" data-x="later" style="border-color:var(--line)">${esc(tx("Later (1h)"))}</button></div></div>`);
+  $$("#sh [data-x]").forEach(b=>b.onclick=()=>{const L=PL(),q=L.find(x=>x.id===p.id);if(q){if(b.dataset.x==="later"){q.at=Date.now()+36e5;q.nt=0}else q.st=b.dataset.x;plSave(L)}close();setTimeout(plTick,600)})}
+function plTick(){if(!PLOK||document.hidden||$("#lock").classList.contains("on"))return;const L=PL(),n=Date.now();let ch=false,due=null;
+  L.forEach(p=>{if(p.st==="pending"&&p.at<=n){if(p.alarm&&!p.nt){p.nt=1;ch=true;notify(tx("Plan reminder"),p.text,"plan"+p.id)}if(!due)due=p}});if(ch)plSave(L);
+  if(due&&$("#sh").style.display!=="block"&&!$("#win").classList.contains("on"))plAsk(due)}
+$("#plb").onclick=openPlans;setInterval(plTick,2e4);document.addEventListener("visibilitychange",()=>{if(!document.hidden)setTimeout(plTick,800)});
+Object.assign(AM,{"Plans":"እቅዶች","New plan":"አዲስ እቅድ","What will you do? e.g. review my losing trades":"ምን ያደርጋሉ? ለምሳሌ ያጡባቸውን ትሬዶች መገምገም","Today":"ዛሬ","Tomorrow":"ነገ","In 1 week":"በ1 ሳምንት","In 1 month":"በ1 ወር","Date":"ቀን","Time":"ሰዓት","Alarm (remind me)":"ማንቂያ (አስታውሰኝ)","Save plan":"እቅድ አስቀምጥ","Needs your answer":"መልስዎን ይፈልጋል","Upcoming":"የሚመጡ","History":"ታሪክ","Done ✓":"ተደርጓል ✓","Done":"ተደርጓል","Not done":"አልተደረገም","Missed":"አልተደረገም","Later (1h)":"ከ1 ሰዓት በኋላ","Plan reminder":"የእቅድ ማስታወሻ","You planned this for:":"ይህን ለማድረግ ያቀዱት፦","No plans yet.":"ገና እቅድ የለም።","Plan saved ✓":"እቅድ ተቀምጧል ✓","Write your plan first":"መጀመሪያ እቅድዎን ይጻፉ","Pick a date":"ቀን ይምረጡ","Phone alarm":"የስልክ ማንቂያ","Calendar file ready":"የ calendar ፋይል ተዘጋጅቷል","Best timeframe":"ምርጥ ታይም ፍሬም","Timeframe":"ታይም ፍሬም"});
 
 boot();

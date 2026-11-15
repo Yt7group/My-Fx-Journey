@@ -261,3 +261,18 @@ label.srow small.sub{margin-top:2px;font-weight:400}
 .pr .pmid{flex:1;min-width:0;text-align:center;font-size:clamp(12px,3.7vw,15px);font-weight:800}
 .pr .tg{flex:none;white-space:nowrap;font-size:8.5px;letter-spacing:.05em;padding:5px 8px}
 .pbd{flex:none}
+
+/* ad post (carousel) + blocked screen */
+.adw{position:relative;margin:0 0 10px;border-radius:14px;overflow:hidden;background:#0008}
+.adcar{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}.adcar::-webkit-scrollbar{display:none}
+.adcar img,.adph{flex:0 0 100%;aspect-ratio:1/1;object-fit:cover;scroll-snap-align:center;display:block}
+.adph{background:rgba(255,255,255,.05)}
+.adcnt{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.6);color:#fff;font-size:11px;padding:3px 8px;border-radius:99px}
+.adbt{display:flex;gap:8px;flex-wrap:wrap}.adbt .adlk{flex:1;min-width:120px}
+#blk{position:fixed;inset:0;z-index:9999;background:#050a02;display:grid;place-items:center;text-align:center;padding:24px;color:#f4f7ea}
+.blkb{max-width:320px}.blke{font-size:54px}.blkb h2{margin:8px 0}.blkb p{color:#9aa88a;line-height:1.5;margin:0 0 18px}
+
+.adfd{animation:adfd .35s ease}@keyframes adfd{from{opacity:.25;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+.plb{border-color:var(--acc);color:var(--acc);font-size:12px;padding:5px 12px;white-space:nowrap;flex:none;margin:0 6px;align-items:center;gap:4px}
+#acb{min-width:0}
