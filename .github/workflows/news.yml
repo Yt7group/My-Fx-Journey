@@ -1,0 +1,26 @@
+name: Update news
+on:
+  schedule:
+    - cron: "17 */2 * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  news:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch calendar
+        run: |
+          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+          get() { for i in 1 2 3 4; do curl -fsSL -A "$UA" "$1" -o "$2" && python3 -c "import json;assert isinstance(json.load(open('$2')),list)" && return 0; sleep $((20*i)); done; return 1; }
+          get https://nfs.faireconomy.media/ff_calendar_thisweek.json tw.json || echo '[]' > tw.json
+          get https://nfs.faireconomy.media/ff_calendar_nextweek.json nw.json || echo '[]' > nw.json
+          python3 -c "import json;o=json.load(open('tw.json'))+json.load(open('nw.json'));o and json.dump(o,open('news.json','w'),ensure_ascii=False)"
+          rm -f tw.json nw.json
+      - name: Commit
+        run: |
+          git config user.name "news-bot"
+          git config user.email "news-bot@users.noreply.github.com"
+          git add news.json || true
+          git diff --cached --quiet || (git commit -m "Update news" && git push)
