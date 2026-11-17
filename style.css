@@ -305,3 +305,7 @@ html,body{touch-action:pan-x pan-y}
 .adlinks .adic{width:auto;height:auto;border-radius:18px;padding:7px 14px 7px 7px;display:flex;align-items:center;gap:8px}
 .adlinks .adic img{width:34px;height:34px;border-radius:50%;flex:none}.adlinks .adic span{font-size:12px}
 .adbt.pad{padding:14px 16px 18px}
+/* fix: banner images must never be wider than their frame */
+.adc,.adw{max-width:100%;min-width:0}
+.adcar{display:flex;width:100%;min-width:0}
+.adcar>img,.adcar>.adph{flex:0 0 100%;width:100%;min-width:100%;max-width:100%;height:auto;aspect-ratio:16/9;object-fit:cover}
