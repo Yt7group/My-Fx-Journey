@@ -695,7 +695,7 @@ function adsActive(){const n=Date.now();return(Array.isArray(AD)?AD:[]).filter(a
 function adIcon(a){if(adOk(a.logo))return`<img src="${a.logo}" alt="">`;const i=String(a.icon||"📢").trim();return/^(https?:\/\/|[\w\-.\/]+\.(png|jpe?g|webp|gif|svg))/i.test(i)&&adUrl(i)?`<img src="${esc(i)}" alt="">`:esc(i)}
 var ADX=0;
 function paintAds(rot){const b=$("#adstrip");if(!b)return;const L=adsActive(),F=L.filter(a=>a.featured),P=F.length?F:L.slice(0,1),f=P[ADX%Math.max(1,P.length)];
-  b.innerHTML=`<span class="adi">${f?adIcon(f):"📢"}</span><span class="adt"><b>${esc(f?(f.title||tx("Ads")):tx("Ads"))}</b>${f&&f.text?`<small>${esc(f.text.split("\n")[0])}</small>`:""}</span><span class="adg ${f?"on":""}">${f?esc(L.length+" "+tx("ads")):esc(tx("No ads"))}</span>`;
+  b.innerHTML=`<span class="adi">${f?adIcon(f):"📢"}</span><span class="adt"><b>${esc(f?(f.title||tx("Ads")):tx("Ads"))}</b>${f&&f.text?`<small>${esc(String(f.short||f.text).split("\n")[0])}</small>`:""}</span><span class="adg ${f?"on":""}">${f?esc(L.length+" "+tx("ads")):esc(tx("No ads"))}</span>`;
   if(rot){b.classList.remove("adfd");void b.offsetWidth;b.classList.add("adfd")}}
 setInterval(()=>{if(!document.hidden&&adsActive().filter(a=>a.featured).length>1){ADX++;paintAds(1)}},4500);
 var ADI={};
@@ -705,10 +705,23 @@ async function fillCar(c,inline){const id=c.dataset.id,n=+c.dataset.n||0;let L=i
   if(!L.length){c.parentNode.remove();return}
   c.innerHTML=L.map(d=>`<img src="${d}" alt="">`).join("");const w=c.parentNode,cnt=w.querySelector(".adcnt");
   if(L.length>1){cnt.textContent="1/"+L.length;c.onscroll=()=>{cnt.textContent=(Math.round(c.scrollLeft/c.clientWidth)+1)+"/"+L.length}}else cnt.remove()}
-function openAds(){const L=adsActive();
-  openWin(tx("Ads"),L.length?L.map((a,i)=>{const lk=adUrl(a.link),vd=adUrl(a.video),inl=Array.isArray(a.imgs)&&a.imgs.some(adOk),has=inl||(a.n>0&&a.id);
-    return`<section class="card ad"><div class="adh"><span class="adi">${adIcon(a)}</span><div><b>${esc(a.title||"")}</b>${a.date?`<div class="sub">${esc(a.date)}</div>`:""}</div></div>${has?`<div class="adw"><div class="adcar" data-id="${esc(a.id||"")}" data-n="${+a.n||0}" data-i="${i}"><div class="adph"></div></div><span class="adcnt"></span></div>`:""}${a.text?`<div class="adx">${esc(a.text)}</div>`:""}<div class="adbt">${vd?`<a class="pill adlk" href="${esc(vd)}" target="_blank" rel="noopener noreferrer">▶ ${esc(tx("Watch video"))}</a>`:""}${lk?`<a class="pill l adlk" href="${esc(lk)}" target="_blank" rel="noopener noreferrer">${esc(a.linkText||tx("Open link"))}</a>`:""}</div></section>`}).join(""):`<div class="empty">${esc(tx("No ads"))}</div>`);
-  document.querySelectorAll(".adcar").forEach(c=>{const a=L[+c.dataset.i];fillCar(c,Array.isArray(a.imgs)&&a.imgs.some(adOk)?a.imgs.filter(adOk):null)})}
+var ADL=[];
+const adLinks=a=>(a.links||[]).map((l,k)=>({...l,k})).filter(l=>/^https?:\/\//.test(l.u||"")&&adUrl(l.u));
+const adHost=u=>{try{return new URL(u).hostname.replace(/^www\./,"")}catch(e){return""}};
+const icBtn=(a,l,lab)=>`<a class="adic" href="${esc(l.u)}" target="_blank" rel="noopener noreferrer" data-ic="${esc(a.id||"")}|${l.k}">${adOk(l.ic)?`<img src="${l.ic}" alt="">`:"🔗"}${lab?`<span>${esc(adHost(l.u))}</span>`:""}</a>`;
+function icLoad(root){root.querySelectorAll("[data-ic]").forEach(async b=>{if(b.querySelector("img"))return;const[id,k]=b.dataset.ic.split("|");if(!id)return;const d=await adImg(id,"l"+k);if(d){const sp=b.querySelector("span");b.innerHTML=`<img src="${d}" alt="">`+(sp?sp.outerHTML:"")}})}
+const adHasImg=a=>(Array.isArray(a.imgs)&&a.imgs.some(adOk))||(a.n>0&&a.id);
+const adCar=(a,i)=>adHasImg(a)?`<div class="adw"><div class="adcar" data-id="${esc(a.id||"")}" data-n="${+a.n||0}" data-i="${i}"><div class="adph"></div></div><span class="adcnt"></span></div>`:"";
+function adCard(a,i){const L=adLinks(a);
+  return`<article class="adc" data-i="${i}">${adCar(a,i)}<div class="adb"><span class="adlg">${adIcon(a)}</span><div class="adnm"><b>${esc(a.title||"")}</b><small>${esc(a.cat||"")}</small></div></div>${a.short||a.text?`<div class="adsd">${esc(a.short||String(a.text).split("\n")[0])}</div>`:""}<div class="adft"><div class="adics">${L.slice(0,3).map(l=>icBtn(a,l)).join("")}${L.length>3?`<span class="admr">+${L.length-3}</span>`:""}</div><button class="admo" data-det="${i}">${esc(tx("Details"))} ›</button></div></article>`}
+function adFill(root,L){root.querySelectorAll(".adcar").forEach(c=>{const a=L[+c.dataset.i];fillCar(c,Array.isArray(a.imgs)&&a.imgs.some(adOk)?a.imgs.filter(adOk):null)});icLoad(root)}
+function openAds(){const L=adsActive();ADL=L;
+  openWin(tx("Ads"),L.length?L.map(adCard).join(""):`<div class="empty">${esc(tx("No ads"))}</div>`);
+  const w=$("#win");adFill(w,L);
+  w.onclick=e=>{if(e.target.closest("a"))return;const c=e.target.closest(".adc,[data-det]");if(c&&ADL.length)adDetail(+(c.dataset.det!==undefined?c.dataset.det:c.dataset.i))}}
+function adDetail(i){const a=ADL[i];if(!a)return;const L=adLinks(a),lk=adUrl(a.link),vd=adUrl(a.video);
+  openWin(esc(a.title||tx("Ads")),`<button class="chip" id="adbk" style="margin-bottom:10px">‹ ${esc(tx("All ads"))}</button><div class="adc nohover">${adCar(a,i).replace('class="adw"','class="adw big"')}<div class="adb"><span class="adlg">${adIcon(a)}</span><div class="adnm"><b>${esc(a.title||"")}</b><small>${esc(a.cat||"")}</small></div></div>${a.text?`<div class="adx full">${esc(a.text)}</div>`:""}${L.length?`<div class="adlinks">${L.map(l=>icBtn(a,l,1)).join("")}</div>`:""}<div class="adbt pad">${vd?`<a class="pill adlk" href="${esc(vd)}" target="_blank" rel="noopener noreferrer">▶ ${esc(tx("Watch video"))}</a>`:""}${lk?`<a class="pill l adlk" href="${esc(lk)}" target="_blank" rel="noopener noreferrer">${esc(a.linkText||tx("Open link"))}</a>`:""}</div></div>`);
+  const w=$("#win");w.onclick=null;adFill(w,ADL);$("#adbk").onclick=openAds}
 async function fsAds(){try{const k=window.TJ_FIREBASE||{};if(!k.projectId||!k.apiKey)return null;const r=await fetch(`https://firestore.googleapis.com/v1/projects/${k.projectId}/databases/(default)/documents/config/ads?key=${k.apiKey}`,{cache:"no-store"});if(!r.ok)return null;const d=await r.json(),j=d.fields&&d.fields.json&&d.fields.json.stringValue;return j?JSON.parse(j):null}catch(e){return null}}
 async function loadAds(){
   const fa=await fsAds();if(Array.isArray(fa)){AD=fa;sv("tj_ads_v1",AD)}else
@@ -724,7 +737,8 @@ function blkShow(){if($("#blk"))return;const d=document.createElement("div");d.i
 function blkHide(){const d=$("#blk");if(d)d.remove()}
 async function checkBlocked(){const f=window.TJ_FIREBASE||{};if(!CU||!f.projectId)return;try{const r=await fetch(`https://firestore.googleapis.com/v1/projects/${f.projectId}/databases/(default)/documents/blocked/${CU.uid}?key=${f.apiKey}`,{cache:"no-store"});if(r.status===200){localStorage.setItem("tj_blk","1");blkShow()}else if(r.status===404){localStorage.removeItem("tj_blk");blkHide()}}catch(e){}}
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)checkBlocked()});
-Object.assign(AM,{"Account blocked":"አካውንት ታግዷል","Your account has been blocked by the admin. Contact:":"አካውንትዎ በ admin ታግዷል። ያነጋግሩ፦","Check again":"እንደገና አረጋግጥ","Watch video":"ቪዲዮ ተመልከት"});
+document.addEventListener("gesturestart",e=>e.preventDefault());document.addEventListener("dblclick",e=>e.preventDefault());
+Object.assign(AM,{"Details":"ዝርዝር","All ads":"ሁሉም ማስታወቂያዎች","Account blocked":"አካውንት ታግዷል","Your account has been blocked by the admin. Contact:":"አካውንትዎ በ admin ታግዷል። ያነጋግሩ፦","Check again":"እንደገና አረጋግጥ","Watch video":"ቪዲዮ ተመልከት"});
 
 /* ---------- Usage sessions (time in app, visible to the admin) ---------- */
 var USS=null;
