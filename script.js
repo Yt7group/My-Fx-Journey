@@ -599,13 +599,28 @@ function realCloud(){
     async signOut(){const f=await init();await f.au.signOut(f.auth)},
     async touch(id,name){const f=await init(),r=f.fs.doc(f.db,"users",id),s=await f.fs.getDoc(r),d=s.exists()?s.data():{};await f.fs.setDoc(r,{username:name,lastSeen:Date.now(),createdAt:d.createdAt||Date.now()},{merge:true});return d.dataT||0},
     async pull(id){const f=await init(),m=await f.fs.getDoc(f.fs.doc(f.db,"users",id)),t=m.exists()&&m.data().dataT||0;if(!t)return null;const q=await f.fs.getDocs(f.fs.collection(f.db,"users",id,"data")),data={};q.forEach(x=>data[x.id]=x.data().v);return{t,data}},
+    async cmList(ad,lim,after){const f=await init(),B=f.fs,c=B.collection(f.db,"adc",ad,"c"),q=after?B.query(c,B.orderBy("ts","desc"),B.startAfter(after),B.limit(lim)):B.query(c,B.orderBy("ts","desc"),B.limit(lim)),r=await B.getDocs(q);return{items:r.docs.map(d=>{const x=d.data();return{id:d.id,uid:x.uid,name:x.name,text:x.text,biz:!!x.biz,ts:x.ts&&x.ts.toMillis?x.ts.toMillis():Date.now()}}),last:r.docs.length===lim?r.docs[r.docs.length-1]:null}},
+    async cmAdd(ad,u,text){const f=await init(),B=f.fs;await B.addDoc(B.collection(f.db,"adc",ad,"c"),{uid:u.uid,name:u.username,text,biz:false,ts:B.serverTimestamp()})},
+    async cmDel(ad,id){const f=await init();await f.fs.deleteDoc(f.fs.doc(f.db,"adc",ad,"c",id))},
+    async cmRep(ad,id,u,text,name){const f=await init(),B=f.fs;await B.setDoc(B.doc(f.db,"reports",ad+"_"+id+"_"+u.uid),{adId:ad,cid:id,uid:u.uid,by:u.username,name,text,ts:B.serverTimestamp()})},
+    async rateGet(ad,u){const f=await init(),g=await f.fs.getDoc(f.fs.doc(f.db,"adc",ad,"r",u.uid));return g.exists()?g.data().stars:0},
+    async rateSet(ad,u,n){const f=await init(),B=f.fs;await B.setDoc(B.doc(f.db,"adc",ad,"r",u.uid),{stars:n,ts:B.serverTimestamp()})},
+    async rateSum(ad){const f=await init(),B=f.fs,c=B.collection(f.db,"adc",ad,"r"),a=await B.getAggregateFromServer(c,{n:B.count(),avg:B.average("stars")}),d=await Promise.all([1,2,3,4,5].map(k=>B.getAggregateFromServer(B.query(c,B.where("stars","==",k)),{n:B.count()})));return{n:a.data().n,avg:a.data().avg||0,d:d.map(x=>x.data().n)}},
     async session(id,sid,d,dl){const f=await init(),b=f.fs.writeBatch(f.db);b.set(f.fs.doc(f.db,"users",id,"sessions",sid),d,{merge:true});b.set(f.fs.doc(f.db,"users",id),{totalSec:f.fs.increment(dl),lastSeen:Date.now()},{merge:true});await b.commit()},
     async push(id,data,t){const f=await init(),b=f.fs.writeBatch(f.db);Object.entries(data).forEach(([k,v])=>b.set(f.fs.doc(f.db,"users",id,"data",k),{v}));b.set(f.fs.doc(f.db,"users",id),{dataT:t,lastSeen:Date.now()},{merge:true});await b.commit()}
   };
 }
 function mockCloud(){
   const U=()=>ld("tj_mock_users",{}),er=c=>Object.assign(new Error(c),{code:c}),mk=(u,id)=>{const s={uid:id,username:u};sv("tj_mock_sess",s);return s};
+  const CMK=ad=>"tj_mock_cm_"+ad,CMS0=()=>[{id:"s2",uid:"x2",name:"YT7 Academy",text:"Thank you! Next seminar is on Dec 5, see you there.",biz:true,ts:Date.now()-36e5},{id:"s1",uid:"x1",name:"dawit",text:"Great seminar! The risk management part was very clear.",biz:false,ts:Date.now()-72e5}],RK=(ad,u)=>"tj_mock_r_"+ad+"_"+u;
   return{
+    async cmList(ad,lim,after){const L=ld(CMK(ad),null)||CMS0(),o=after||0;return{items:L.slice(o,o+lim),last:L.length>o+lim?o+lim:null}},
+    async cmAdd(ad,u,text){const L=ld(CMK(ad),null)||CMS0();L.unshift({id:"m"+Date.now(),uid:u.uid,name:u.username,text,biz:false,ts:Date.now()});sv(CMK(ad),L)},
+    async cmDel(ad,id){sv(CMK(ad),(ld(CMK(ad),null)||CMS0()).filter(c=>c.id!==id))},
+    async cmRep(){},
+    async rateGet(ad,u){return ld(RK(ad,u.uid),0)},
+    async rateSet(ad,u,n){sv(RK(ad,u.uid),n)},
+    async rateSum(ad){const b=[0,0,1,4,12],m=ld(RK(ad,(ld("tj_mock_sess",{})||{}).uid),0),d=b.slice();if(m)d[m-1]++;const n=d.reduce((x,y)=>x+y,0);return{n,avg:d.reduce((x,y,k)=>x+y*(k+1),0)/n,d}},
     async session(){},
     async user(){return ld("tj_mock_sess",null)},
     async signUp(u,p){const m=U();if(m[u])throw er("auth/email-already-in-use");m[u]={h:await hashPin(p,u),id:"m"+Date.now()};sv("tj_mock_users",m);return mk(u,m[u].id)},
@@ -720,8 +735,28 @@ function openAds(){const L=adsActive();ADL=L;
   const w=$("#win");adFill(w,L);
   w.onclick=e=>{if(e.target.closest("a"))return;const c=e.target.closest(".adc,[data-det]");if(c&&ADL.length)adDetail(+(c.dataset.det!==undefined?c.dataset.det:c.dataset.i))}}
 function adDetail(i){const a=ADL[i];if(!a)return;const L=adLinks(a),lk=adUrl(a.link),vd=adUrl(a.video);
-  openWin(esc(a.title||tx("Ads")),`<button class="chip" id="adbk" style="margin-bottom:10px">‹ ${esc(tx("All ads"))}</button><div class="adc nohover">${adCar(a,i).replace('class="adw"','class="adw big"')}<div class="adb"><span class="adlg">${adIcon(a)}</span><div class="adnm"><b>${esc(a.title||"")}</b><small>${esc(a.cat||"")}</small></div></div>${a.text?`<div class="adx full">${esc(a.text)}</div>`:""}${L.length?`<div class="adlinks">${L.map(l=>icBtn(a,l,1)).join("")}</div>`:""}<div class="adbt pad">${vd?`<a class="pill adlk" href="${esc(vd)}" target="_blank" rel="noopener noreferrer">▶ ${esc(tx("Watch video"))}</a>`:""}${lk?`<a class="pill l adlk" href="${esc(lk)}" target="_blank" rel="noopener noreferrer">${esc(a.linkText||tx("Open link"))}</a>`:""}</div></div>`);
-  const w=$("#win");w.onclick=null;adFill(w,ADL);$("#adbk").onclick=openAds}
+  openWin(esc(a.title||tx("Ads")),`<button class="chip" id="adbk" style="margin-bottom:10px">‹ ${esc(tx("All ads"))}</button><div class="adc nohover">${adCar(a,i).replace('class="adw"','class="adw big"')}<div class="adb"><span class="adlg">${adIcon(a)}</span><div class="adnm"><b>${esc(a.title||"")}</b><small>${esc(a.cat||"")}</small></div></div>${a.text?`<div class="adx full">${esc(a.text)}</div>`:""}${L.length?`<div class="adlinks">${L.map(l=>icBtn(a,l,1)).join("")}</div>`:""}<div class="adbt pad">${vd?`<a class="pill adlk" href="${esc(vd)}" target="_blank" rel="noopener noreferrer">▶ ${esc(tx("Watch video"))}</a>`:""}${lk?`<a class="pill l adlk" href="${esc(lk)}" target="_blank" rel="noopener noreferrer">${esc(a.linkText||tx("Open link"))}</a>`:""}</div>${CLOUD&&a.id&&a.cm!==false?`<div class="adbt pad" style="padding-top:0"><button class="pill adlk" id="adcm">💬 ${esc(tx("Comments & rating"))}</button></div>`:""}</div>`);
+  const w=$("#win");w.onclick=null;adFill(w,ADL);$("#adbk").onclick=openAds;const cb=$("#adcm");if(cb)cb.onclick=()=>adComments(i)}
+const cmAgo=t=>{const m=Math.max(1,Math.round((Date.now()-t)/6e4));return m<60?m+"m":m<1440?Math.round(m/60)+"h":Math.round(m/1440)+"d"};
+const cmCol=n=>["#5aa0f0","#f09650","#c86ee0","#5ac8aa","#e8c04a"][[...String(n)].reduce((a,c)=>a+c.charCodeAt(0),0)%5];
+function cmItem(c){const own=CU&&c.uid===CU.uid;return`<div class="cmi${c.biz?" biz":""}"><span class="cma" style="background:${c.biz?"var(--acc)":cmCol(c.name)}">${esc((c.name||"?")[0].toUpperCase())}</span><div class="cmb"><div class="cmh"><b>${esc(c.name||"")}</b>${c.biz?`<span class="cmbz">BUSINESS</span>`:""}<small>${cmAgo(c.ts)}</small></div><div class="cmt">${esc(c.text)}</div><div class="cmx">${own?`<button data-cd="${esc(c.id)}">${esc(tx("Delete"))}</button>`:CU&&!c.biz?`<button data-cr="${esc(c.id)}">${esc(tx("Report"))}</button>`:""}</div></div></div>`}
+function adComments(i){const a=ADL[i];if(!a||!a.id||!CLOUD)return;const ad=a.id;let last=null,busy=0;
+  openWin(esc(a.title||""),`<button class="chip" id="cmbk" style="margin-bottom:10px">‹ ${esc(tx("Details"))}</button><div class="card" id="cmsum"><div class="sub">…</div></div><div class="card" id="cmrate"></div><div class="card" id="cmform"></div><div id="cmlist"></div><button class="pill" id="cmmore" style="display:none;width:100%;margin-top:10px">${esc(tx("View more"))}</button>`);
+  $("#win").onclick=null;$("#cmbk").onclick=()=>adDetail(i);
+  const sum=async()=>{try{const r=await CLOUD.rateSum(ad),mx=Math.max(1,...r.d),st=Math.round(r.avg);$("#cmsum").innerHTML=`<div class="cms"><div><div class="cmbig">${r.n?r.avg.toFixed(1):"–"}</div><div class="cmst">${"★".repeat(st)}${"☆".repeat(5-st)}</div><div class="sub">${r.n} ${esc(tx("ratings"))}</div></div><div class="cmbars">${[5,4,3,2,1].map(k=>`<div class="cmbr"><span>${k}★</span><i><b style="width:${Math.round(r.d[k-1]/mx*100)}%"></b></i></div>`).join("")}</div></div>`}catch(e){$("#cmsum").innerHTML=`<div class="sub">${esc(tx("Could not load"))}</div>`}};
+  const rate=async()=>{const el=$("#cmrate");if(!CU){el.innerHTML=`<div class="sub">${esc(tx("Sign in to rate and comment"))}</div><button class="pill l" id="cmsi" style="margin-top:8px">${esc(tx("Sign in"))}</button>`;$("#cmsi").onclick=async()=>{try{await authScreen(false)}catch(e){}if(!CU)try{CU=await CLOUD.user()}catch(e){}adComments(i)};return}
+    let my=0;try{my=await CLOUD.rateGet(ad,CU)}catch(e){}
+    el.innerHTML=`<div class="sub">${esc(tx("Your rating"))}</div><div class="cmstars">${[1,2,3,4,5].map(k=>`<button data-rs="${k}" class="${k<=my?"on":""}">★</button>`).join("")}</div>`;
+    el.querySelectorAll("[data-rs]").forEach(b=>b.onclick=async()=>{try{await CLOUD.rateSet(ad,CU,+b.dataset.rs);rate();sum()}catch(e){toast(tx("Could not save"))}})};
+  const load=async reset=>{try{if(reset)last=null;const r=await CLOUD.cmList(ad,20,last);last=r.last;const l=$("#cmlist"),h=r.items.map(cmItem).join("");if(reset)l.innerHTML=h||`<div class="sub" style="padding:14px 4px">${esc(tx("No comments yet"))}</div>`;else l.insertAdjacentHTML("beforeend",h);$("#cmmore").style.display=last?"":"none"}catch(e){$("#cmlist").innerHTML=`<div class="sub">${esc(tx("Could not load"))}</div>`}};
+  const form=()=>{const el=$("#cmform");if(!CU){el.style.display="none";return}el.innerHTML=`<div class="cmin"><textarea id="cmtx" maxlength="300" rows="2" placeholder="${esc(tx("Write a comment…"))}"></textarea><button class="pill l" id="cmsd">${esc(tx("Send"))}</button></div>`;
+    $("#cmsd").onclick=async()=>{const t=$("#cmtx").value.trim();if(!t||busy)return;if(Date.now()-(window.__cmT||0)<2e4){toast(tx("Please wait a few seconds"));return}busy=1;try{await CLOUD.cmAdd(ad,CU,t);window.__cmT=Date.now();$("#cmtx").value="";await load(true)}catch(e){toast(tx("Could not send"))}busy=0}};
+  $("#cmmore").onclick=()=>load(false);
+  $("#cmlist").onclick=async e=>{const d=e.target.closest("[data-cd]"),r=e.target.closest("[data-cr]");
+    if(d&&confirm(tx("Delete your comment?"))){try{await CLOUD.cmDel(ad,d.dataset.cd);load(true)}catch(x){toast(tx("Could not delete"))}}
+    if(r){const row=r.closest(".cmi");try{await CLOUD.cmRep(ad,r.dataset.cr,CU,row.querySelector(".cmt").textContent.slice(0,300),row.querySelector("b").textContent);r.outerHTML=`<span class="sub">${esc(tx("Reported"))}</span>`}catch(x){toast(tx("Could not report"))}}};
+  sum();rate();form();load(true)}
+Object.assign(AM,{"Comments & rating":"አስተያየት እና ደረጃ","Write a comment…":"አስተያየት ይጻፉ…","Send":"ላክ","Your rating":"የእርስዎ ደረጃ","ratings":"ደረጃዎች","No comments yet":"እስካሁን አስተያየት የለም","View more":"ተጨማሪ","Sign in to rate and comment":"ደረጃ ለመስጠት እና ለመጻፍ ይግቡ","Report":"አሳውቅ","Reported":"ተመዝግቧል","Could not load":"መጫን አልተቻለም","Could not send":"መላክ አልተቻለም","Could not save":"ማስቀመጥ አልተቻለም","Please wait a few seconds":"ጥቂት ሰከንዶች ይጠብቁ","Delete your comment?":"አስተያየትዎ ይሰረዝ?","Could not delete":"መሰረዝ አልተቻለም","Could not report":"ማሳወቅ አልተቻለም"});
 async function fsAds(){try{const k=window.TJ_FIREBASE||{};if(!k.projectId||!k.apiKey)return null;const r=await fetch(`https://firestore.googleapis.com/v1/projects/${k.projectId}/databases/(default)/documents/config/ads?key=${k.apiKey}`,{cache:"no-store"});if(!r.ok)return null;const d=await r.json(),j=d.fields&&d.fields.json&&d.fields.json.stringValue;return j?JSON.parse(j):null}catch(e){return null}}
 async function loadAds(){
   const fa=await fsAds();if(Array.isArray(fa)){AD=fa;sv("tj_ads_v1",AD)}else
