@@ -1,6 +1,6 @@
 {
-  "name": "My Trading Journal",
-  "short_name": "Trading Journal",
+  "name": "My FX Journey",
+  "short_name": "My FX Journey",
   "description": "Trading journal with calendar, balance and equity curve",
   "id": "./",
   "start_url": "./",
