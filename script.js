@@ -33,7 +33,11 @@ function toast(m){m=tx(m);snd("ok");const t=$("#toast");t.textContent=m;t.classL
 /* ---------- image store (IndexedDB) ---------- */
 const IDB=new Promise(res=>{try{const r=indexedDB.open("tj_img",1);r.onupgradeneeded=()=>r.result.createObjectStore("i",{keyPath:"id"});r.onsuccess=()=>res(r.result);r.onerror=()=>res(null)}catch(e){res(null)}});
 const idb=(mode,fn)=>IDB.then(db=>db?new Promise(r=>{const t=db.transaction("i",mode),q=fn(t.objectStore("i"));t.oncomplete=()=>r(q&&q.result);t.onerror=()=>r(null)}):null);
-const idbPut=(id,blob)=>idb("readwrite",s=>s.put({id,blob})),idbDel=id=>idb("readwrite",s=>s.delete(id)),idbGet=id=>idb("readonly",s=>s.get(id)).then(r=>r&&r.blob);
+const idbPut0=(id,blob)=>idb("readwrite",s=>s.put({id,blob})),idbDel0=id=>idb("readwrite",s=>s.delete(id)),idbGet0=id=>idb("readonly",s=>s.get(id)).then(r=>r&&r.blob);
+const emOn=()=>{try{return !!(CU&&CLOUD&&CLOUD.imgPut&&ld("tj_em",""))}catch(e){return false}};
+const idbPut=async(id,blob)=>{const r=await idbPut0(id,blob);if(emOn())CLOUD.imgPut(CU.uid,id,blob).catch(()=>{});return r},
+idbDel=async id=>{const r=await idbDel0(id);if(emOn())CLOUD.imgDel(CU.uid,id).catch(()=>{});return r},
+idbGet=async id=>{const b=await idbGet0(id);if(b||!emOn())return b;try{const c=await CLOUD.imgGet(CU.uid,id);if(c){idbPut0(id,c);return c}}catch(e){}return null};
 function shrink(file,max=1280){return new Promise(res=>{const im=new Image(),u=URL.createObjectURL(file);im.onload=()=>{const k=Math.min(1,max/Math.max(im.width,im.height)),c=document.createElement("canvas");c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext("2d").drawImage(im,0,0,c.width,c.height);c.toBlob(b=>{URL.revokeObjectURL(u);res(b)},"image/jpeg",.78)};im.onerror=()=>res(null);im.src=u})}
 
 /* ---------- FX + lot size ---------- */
@@ -468,11 +472,12 @@ function openSettings(){
   const S=$("#stg"),bo=!!ld("tj_bio",null),th=set.theme||"",am=set.lang==="am",acc=FB_ON?accCard():`<section class="card"><h2 style="margin-bottom:6px">Account</h2><div class="sub">Accounts are not set up yet. Add your Firebase keys in config.js to enable Sign in / Sign out.</div></section>`;
   S.innerHTML=`<div class="stg-in"><div class="row sp" style="margin-bottom:14px"><button class="chip" id="sbk">‹ Back</button><h1>Settings</h1><span style="width:62px"></span></div>
   ${acc}
+  ${emCard()}
   <section class="card"><h2 style="margin-bottom:10px">Appearance</h2><div class="row"><button class="pill ${th===""?"l":"o"}" data-th="" style="flex:1">Dark</button><button class="pill ${th==="light"?"l":"o"}" data-th="light" style="flex:1">Light</button></div></section>
   <section class="card"><h2 style="margin-bottom:10px">Language</h2><div class="row"><button class="pill ${am?"o":"l"}" data-lg="en" style="flex:1">English</button><button class="pill ${am?"l":"o"}" data-lg="am" style="flex:1">አማርኛ</button></div></section>
   <section class="card"><h2 style="margin-bottom:4px">Security</h2><button class="srow" id="spin"><span>Change passcode</span><span>›</span></button><label class="srow"><span>Biometric unlock<small class="sub" style="display:block">${bioOK?"Fingerprint / Face ID":"Not supported on this device"}</small></span><input type="checkbox" class="ios" id="sbio" ${bo?"checked":""} ${bioOK?"":"disabled"}></label></section>
   <section class="card"><h2 style="margin-bottom:4px">Sound</h2><label class="srow"><span>App sound</span><input type="checkbox" class="ios" id="ssnd" ${set.snd!==false?"checked":""}></label></section>
-  <section class="card"><h2 style="margin-bottom:10px">Notice</h2><div class="warn"><span>⚠</span><span>Photos you attach to trades are stored only on this phone. They are not synced to your account. If you clear the app data or uninstall the app, they will be lost.</span></div></section>
+  ${noticeCard()}
   <section class="card"><h2 style="margin-bottom:6px">Contact</h2><div class="sub" style="margin-bottom:6px">Have feedback or suggestions? Email us:</div><a class="mail" href="mailto:Yt7group@gmail.com">Yt7group@gmail.com</a></section>
   <div class="credit">Created by YT7</div></div>`;
   S.classList.add("on");applyLang(S);
@@ -607,6 +612,11 @@ function realCloud(){
     async rateSet(ad,u,n){const f=await init(),B=f.fs;await B.setDoc(B.doc(f.db,"adc",ad,"r",u.uid),{stars:n,ts:B.serverTimestamp()})},
     async rateSum(ad){const f=await init(),B=f.fs,c=B.collection(f.db,"adc",ad,"r"),a=await B.getAggregateFromServer(c,{n:B.count(),avg:B.average("stars")}),d=await Promise.all([1,2,3,4,5].map(k=>B.getAggregateFromServer(B.query(c,B.where("stars","==",k)),{n:B.count()})));return{n:a.data().n,avg:a.data().avg||0,d:d.map(x=>x.data().n)}},
     async session(id,sid,d,dl){const f=await init(),b=f.fs.writeBatch(f.db);b.set(f.fs.doc(f.db,"users",id,"sessions",sid),d,{merge:true});b.set(f.fs.doc(f.db,"users",id),{totalSec:f.fs.increment(dl),lastSeen:Date.now()},{merge:true});await b.commit()},
+    async setEmail(id,em){const f=await init();await f.fs.setDoc(f.fs.doc(f.db,"users",id),{email:em,hasEmail:!!em},{merge:true})},
+    async getEmail(id){const f=await init(),g=await f.fs.getDoc(f.fs.doc(f.db,"users",id));return g.exists()&&g.data().email||""},
+    async imgPut(id,k,b){const d=await new Promise((ok,no)=>{const r=new FileReader;r.onload=()=>ok(r.result);r.onerror=no;r.readAsDataURL(b)});if(d.length>950000)return;const f=await init();await f.fs.setDoc(f.fs.doc(f.db,"users",id,"imgs",k),{d,t:Date.now()})},
+    async imgGet(id,k){const f=await init(),g=await f.fs.getDoc(f.fs.doc(f.db,"users",id,"imgs",k));if(!g.exists())return null;const m=/^data:([^;]+);base64,(.*)$/.exec(g.data().d||"");if(!m)return null;const bin=atob(m[2]),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return new Blob([u],{type:m[1]})},
+    async imgDel(id,k){const f=await init();await f.fs.deleteDoc(f.fs.doc(f.db,"users",id,"imgs",k))},
     async push(id,data,t){const f=await init(),b=f.fs.writeBatch(f.db);Object.entries(data).forEach(([k,v])=>b.set(f.fs.doc(f.db,"users",id,"data",k),{v}));b.set(f.fs.doc(f.db,"users",id),{dataT:t,lastSeen:Date.now()},{merge:true});await b.commit()}
   };
 }
@@ -648,6 +658,7 @@ async function startSync(force){
   }catch(e){return false}
 }
 async function afterAuth(){
+  await loadEmail();
   const ct=await CLOUD.touch(CU.uid,CU.username),hasLocal=allTrades.length>0||allFlows.length>0;
   if(ct>0){
     const r=await CLOUD.pull(CU.uid);
@@ -656,23 +667,31 @@ async function afterAuth(){
   await pushNow();
 }
 const AERR={"auth/email-already-in-use":"That username is taken. Try another.","auth/invalid-credential":"Wrong username or password.","auth/wrong-password":"Wrong username or password.","auth/user-not-found":"Wrong username or password.","auth/invalid-login-credentials":"Wrong username or password.","auth/weak-password":"Password must be at least 6 characters.","auth/network-request-failed":"No internet connection. Try again.","auth/too-many-requests":"Too many attempts. Try again later.","auth/operation-not-allowed":"Email/Password sign-in isn't enabled in Firebase yet."};
+const emok=x=>/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(x);
+async function upImgs(){if(!emOn())return;try{for(const t of allTrades)for(const k of(t.imgs||[])){const b=await idbGet0(k);if(b)await CLOUD.imgPut(CU.uid,k,b)}}catch(e){}}
+async function saveEmail(v){v=String(v||"").trim().toLowerCase();if(!emok(v))return false;await CLOUD.setEmail(CU.uid,v);sv("tj_em",v);upImgs();return true}
+async function loadEmail(){try{sv("tj_em",await CLOUD.getEmail(CU.uid)||"")}catch(e){}}
+function emCard(){if(!CU||!CLOUD||!CLOUD.imgPut)return"";const e=ld("tj_em","");return`<section class="card"><h2 style="margin-bottom:6px">Email (optional)</h2>`+(e?`<div class="sub" style="margin-bottom:6px">✓ <b>${esc(e)}</b></div><div class="sub">Your trade photos are saved to your account and won't be lost.</div>`:`<div class="sub" style="margin-bottom:8px">Add your email to keep your photos safe. Without an email, photos can be lost if you clear app data or uninstall.</div><div class="auf"><input id="emi" type="email" autocapitalize="none" autocomplete="email" spellcheck="false" placeholder="${esc(tx("Email address"))}"><button class="pill l" id="emb" type="button" style="width:100%">Add email</button></div>`)+`</section>`}
+function noticeCard(){if(ld("tj_em",""))return"";return`<section class="card"><h2 style="margin-bottom:10px">Notice</h2><div class="warn"><span>⚠</span><span>${CU?"Without an email, your photos can be lost. Add your email above to keep them safe on your account.":"Photos are stored only on this phone and can be lost if you clear app data or uninstall. Create an account and add your email to keep them safe."}</span></div></section>`}
 const errText=e=>AERR[e&&e.code]||"Something went wrong. Try again.";
 function authScreen(canCancel){return new Promise(res=>{
   const A=$("#auth");let mode="in",busy=false;const up=()=>mode==="up",hide=()=>{A.classList.remove("on");A.innerHTML=""};
   const draw=()=>{
     A.innerHTML=`<div class="lk-in"><img class="lk-logo" src="icon-192.png" alt=""><div class="lk-name">My Trading Journal</div><h1>${up()?"Create account":"Sign in"}</h1><div class="sub">Use your account to open your journal on any phone.</div>
-    <div class="auf"><input id="au" autocapitalize="none" autocorrect="off" autocomplete="username" spellcheck="false" maxlength="20" placeholder="${esc(tx("Username (3–20 letters, numbers, . or _)"))}"><input id="ap" type="password" autocomplete="${up()?"new-password":"current-password"}" placeholder="${esc(tx("Password (at least 6 characters)"))}">${up()?`<input id="ap2" type="password" autocomplete="new-password" placeholder="${esc(tx("Confirm password (type it again)"))}">`:""}<div class="sub" id="aer" style="min-height:18px;text-align:center">&nbsp;</div><button class="pill l" id="ago" type="button">${up()?"Create account":"Sign in"}</button></div>
+    <div class="auf"><input id="au" autocapitalize="none" autocorrect="off" autocomplete="username" spellcheck="false" maxlength="20" placeholder="${esc(tx("Username (3–20 letters, numbers, . or _)"))}"><input id="ap" type="password" autocomplete="${up()?"new-password":"current-password"}" placeholder="${esc(tx("Password (at least 6 characters)"))}">${up()?`<input id="ap2" type="password" autocomplete="new-password" placeholder="${esc(tx("Confirm password (type it again)"))}">`:""}${up()?`<input id="aem" type="email" autocapitalize="none" autocomplete="email" spellcheck="false" placeholder="${esc(tx("Email (optional, keeps your photos safe)"))}">`:""}<div class="sub" id="aer" style="min-height:18px;text-align:center">&nbsp;</div><button class="pill l" id="ago" type="button">${up()?"Create account":"Sign in"}</button></div>
     <div class="row lk-foot" style="flex-wrap:wrap"><button class="chip" id="asw" type="button">${up()?"I have an account":"Create account"}</button>${canCancel?'<button class="chip" id="acn" type="button">Back</button>':(FBC.require?"":'<button class="chip" id="ask" type="button">Skip for now</button>')}</div>
-    <div class="sub" style="margin-top:12px;font-size:11px">No email needed. If you forget your password it can't be recovered.</div>${FBC.preview?'<div class="sub" style="margin-top:6px;font-size:11px">Preview mode: accounts are simulated on this device only.</div>':""}</div>`;
+    <div class="sub" style="margin-top:12px;font-size:11px">Email is optional. Add one to keep your trade photos safe on your account.</div>${FBC.preview?'<div class="sub" style="margin-top:6px;font-size:11px">Preview mode: accounts are simulated on this device only.</div>':""}</div>`;
     A.classList.add("on");applyLang(A);
     const er=m=>{const e=$("#aer");e.textContent=m?tx(m):" ";e.classList.toggle("neg",!!m)};
     const go=async()=>{if(busy)return;const u=uname($("#au").value),p=$("#ap").value;
       if(!uok(u))return er("Username: 3–20 letters, numbers, . or _");
       if(p.length<6)return er("Password must be at least 6 characters.");
       if(up()&&p!==$("#ap2").value)return er("Passwords don't match");
+      const em0=up()?($("#aem").value||"").trim().toLowerCase():"";if(em0&&!emok(em0))return er("Enter a valid email or leave it empty.");
       busy=true;er("");const b=$("#ago");b.textContent=tx("Working…");
       try{CU=up()?await CLOUD.signUp(u,p):await CLOUD.signIn(u,p)}catch(e){er(errText(e));busy=false;b.textContent=tx(up()?"Create account":"Sign in");return}
       sv("tj_cu",CU);sv("tj_skip",false);
+      if(em0)try{await saveEmail(em0)}catch(e){}
       try{await afterAuth()}catch(e){}
       hide();res(true)};
     $("#ago").onclick=go;A.querySelectorAll("input").forEach(i=>i.onkeydown=e=>{if(e.key==="Enter")go()});
@@ -685,7 +704,7 @@ function authScreen(canCancel){return new Promise(res=>{
 async function authGate(){
   if(!CLOUD)return;
   const cached=ld("tj_cu",null);
-  if(cached){CU=cached;CLOUD.user().then(u=>{if(u){CU=u;sv("tj_cu",u)}}).catch(()=>{});return}
+  if(cached){CU=cached;if(CLOUD.getEmail&&!ld("tj_em",""))loadEmail().then(upImgs);CLOUD.user().then(u=>{if(u){CU=u;sv("tj_cu",u)}}).catch(()=>{});return}
   try{CU=await CLOUD.user()}catch(e){CU=null}
   if(CU){sv("tj_cu",CU);return}
   localStorage.removeItem("tj_cu");
@@ -696,12 +715,13 @@ async function authGate(){
 function accCard(){const s=syn();return`<section class="card"><h2 style="margin-bottom:6px">Account</h2>`+(CU?`<div class="sub" style="margin-bottom:10px"><span>Signed in as</span> <b>${esc(CU.username)}</b>${s.t?`<br><span>Last synced</span> ${esc(new Date(s.t).toLocaleString())}`:""}${s.dirty?`<br><span>Changes waiting to sync</span>`:""}</div><div class="row"><button class="pill o" id="async" style="flex:1">Sync now</button><button class="pill d" id="aout" style="flex:1">Sign out</button></div>`:`<div class="sub" style="margin-bottom:10px">Sign in to open your journal on any phone.</div><button class="pill l" id="ain" style="width:100%">Sign in / Create account</button>`)+`</section>`}
 function accBind(){
   if($("#async"))$("#async").onclick=async()=>{toast("Syncing…");const ok=await startSync(true);if(ok)toast("Synced ✓");else toast("Sync failed. Check your connection.");openSettings()};
-  if($("#aout"))$("#aout").onclick=async()=>{if(!confirm(tx("Sign out? Your journal stays on this phone.")))return;await pushNow();try{await CLOUD.signOut()}catch(e){}CU=null;localStorage.removeItem("tj_cu");localStorage.removeItem("tj_sync");sv("tj_skip",true);openSettings()};
+  if($("#aout"))$("#aout").onclick=async()=>{if(!confirm(tx("Sign out? Your journal stays on this phone.")))return;await pushNow();try{await CLOUD.signOut()}catch(e){}CU=null;localStorage.removeItem("tj_cu");localStorage.removeItem("tj_sync");localStorage.removeItem("tj_em");sv("tj_skip",true);openSettings()};
+  if($("#emb"))$("#emb").onclick=async()=>{try{if(await saveEmail($("#emi").value)){toast("Email added ✓");openSettings()}else toast("Enter a valid email")}catch(e){toast("Something went wrong. Try again.")}};
   if($("#ain"))$("#ain").onclick=async()=>{await authScreen(true);openSettings()};
 }
 addEventListener("online",()=>{if(CU&&syn().dirty)pushNow()});
 document.addEventListener("visibilitychange",()=>{if(document.hidden&&CU&&syn().dirty)pushNow()});
-Object.assign(AM,{"Account":"አካውንት","Sign in":"ግባ","Create account":"አካውንት ፍጠር","I have an account":"አካውንት አለኝ","Username":"የተጠቃሚ ስም","Password":"ፓስወርድ","Confirm password":"ፓስወርዱን አረጋግጥ","Skip for now":"አሁን ዝለል","Use your account to open your journal on any phone.":"መዝገብህን በማንኛውም ስልክ ለመክፈት አካውንትህን ተጠቀም።","No email needed. If you forget your password it can't be recovered.":"ኢሜል አያስፈልግም። ፓስወርድ ከረሳህ ማስመለስ አይቻልም።","Preview mode: accounts are simulated on this device only.":"የሙከራ ሁነታ፦ አካውንቶች በዚህ መሣሪያ ላይ ብቻ የሚመስሉ ናቸው።","Username: 3–20 letters, numbers, . or _":"የተጠቃሚ ስም፦ ከ3–20 ፊደል፣ ቁጥር፣ . ወይም _","Password must be at least 6 characters.":"ፓስወርድ ቢያንስ 6 ቁምፊ መሆን አለበት።","Passwords don't match":"ፓስወርዶቹ አይመሳሰሉም","Working…":"በመስራት ላይ…","That username is taken. Try another.":"ይህ የተጠቃሚ ስም ተይዟል። ሌላ ሞክር።","Wrong username or password.":"የተሳሳተ የተጠቃሚ ስም ወይም ፓስወርድ።","No internet connection. Try again.":"ኢንተርኔት የለም። ድጋሚ ሞክር።","Too many attempts. Try again later.":"ብዙ ሙከራ ተደርጓል። ቆይተህ ሞክር።","Email/Password sign-in isn't enabled in Firebase yet.":"Email/Password በ Firebase ላይ ገና አልበራም።","Something went wrong. Try again.":"የሆነ ችግር ተፈጥሯል። ድጋሚ ሞክር።","Signed in as":"የገባህበት ስም","Last synced":"መጨረሻ የተመሳሰለው","Changes waiting to sync":"ለማመሳሰል የሚጠብቁ ለውጦች","Sync now":"አሁን አመሳስል","Sign out":"ውጣ","Sign in to open your journal on any phone.":"መዝገብህን በማንኛውም ስልክ ለመክፈት ግባ።","Sign in / Create account":"ግባ / አካውንት ፍጠር","Syncing…":"በማመሳሰል ላይ…","Synced ✓":"ተመሳስሏል ✓","Sync failed. Check your connection.":"ማመሳሰል አልተሳካም። ግንኙነትህን ፈትሽ።","Sign out? Your journal stays on this phone.":"ልውጣ? መዝገብህ በዚህ ስልክ ላይ ይቆያል።","This account already has saved data.\nOK = load the account's data (replaces this phone's journal)\nCancel = keep this phone's data (replaces the account's data)":"ይህ አካውንት ቀድሞ የተቀመጠ ዳታ አለው።\nOK = የአካውንቱን ዳታ ጫን (የዚህ ስልክ መዝገብ ይተካል)\nCancel = የዚህን ስልክ ዳታ አቆይ (የአካውንቱ ዳታ ይተካል)","Newer data from another phone was found.\nOK = use it (unsynced changes on this phone are lost)\nCancel = keep this phone's data":"ከሌላ ስልክ አዲስ ዳታ ተገኝቷል።\nOK = ተጠቀምበት (በዚህ ስልክ ያልተመሳሰሉ ለውጦች ይጠፋሉ)\nCancel = የዚህን ስልክ ዳታ አቆይ"});
+Object.assign(AM,{"Account":"አካውንት","Sign in":"ግባ","Create account":"አካውንት ፍጠር","I have an account":"አካውንት አለኝ","Username":"የተጠቃሚ ስም","Password":"ፓስወርድ","Confirm password":"ፓስወርዱን አረጋግጥ","Skip for now":"አሁን ዝለል","Use your account to open your journal on any phone.":"መዝገብህን በማንኛውም ስልክ ለመክፈት አካውንትህን ተጠቀም።","Email is optional. Add one to keep your trade photos safe on your account.":"ኢሜል አማራጭ ነው። የትሬድ ፎቶዎችህ እንዳይጠፉ ኢሜል ጨምር።","Preview mode: accounts are simulated on this device only.":"የሙከራ ሁነታ፦ አካውንቶች በዚህ መሣሪያ ላይ ብቻ የሚመስሉ ናቸው።","Username: 3–20 letters, numbers, . or _":"የተጠቃሚ ስም፦ ከ3–20 ፊደል፣ ቁጥር፣ . ወይም _","Password must be at least 6 characters.":"ፓስወርድ ቢያንስ 6 ቁምፊ መሆን አለበት።","Passwords don't match":"ፓስወርዶቹ አይመሳሰሉም","Working…":"በመስራት ላይ…","That username is taken. Try another.":"ይህ የተጠቃሚ ስም ተይዟል። ሌላ ሞክር።","Wrong username or password.":"የተሳሳተ የተጠቃሚ ስም ወይም ፓስወርድ።","No internet connection. Try again.":"ኢንተርኔት የለም። ድጋሚ ሞክር።","Too many attempts. Try again later.":"ብዙ ሙከራ ተደርጓል። ቆይተህ ሞክር።","Email/Password sign-in isn't enabled in Firebase yet.":"Email/Password በ Firebase ላይ ገና አልበራም።","Something went wrong. Try again.":"የሆነ ችግር ተፈጥሯል። ድጋሚ ሞክር።","Signed in as":"የገባህበት ስም","Last synced":"መጨረሻ የተመሳሰለው","Changes waiting to sync":"ለማመሳሰል የሚጠብቁ ለውጦች","Sync now":"አሁን አመሳስል","Sign out":"ውጣ","Sign in to open your journal on any phone.":"መዝገብህን በማንኛውም ስልክ ለመክፈት ግባ።","Sign in / Create account":"ግባ / አካውንት ፍጠር","Syncing…":"በማመሳሰል ላይ…","Synced ✓":"ተመሳስሏል ✓","Sync failed. Check your connection.":"ማመሳሰል አልተሳካም። ግንኙነትህን ፈትሽ።","Sign out? Your journal stays on this phone.":"ልውጣ? መዝገብህ በዚህ ስልክ ላይ ይቆያል።","This account already has saved data.\nOK = load the account's data (replaces this phone's journal)\nCancel = keep this phone's data (replaces the account's data)":"ይህ አካውንት ቀድሞ የተቀመጠ ዳታ አለው።\nOK = የአካውንቱን ዳታ ጫን (የዚህ ስልክ መዝገብ ይተካል)\nCancel = የዚህን ስልክ ዳታ አቆይ (የአካውንቱ ዳታ ይተካል)","Newer data from another phone was found.\nOK = use it (unsynced changes on this phone are lost)\nCancel = keep this phone's data":"ከሌላ ስልክ አዲስ ዳታ ተገኝቷል።\nOK = ተጠቀምበት (በዚህ ስልክ ያልተመሳሰሉ ለውጦች ይጠፋሉ)\nCancel = የዚህን ስልክ ዳታ አቆይ"});
 
 /* ---------- Ads (edit ads.json on GitHub) ---------- */
 var AD=ld("tj_ads_v1",[]);
@@ -814,3 +834,5 @@ $("#plb").onclick=openPlans;setInterval(plTick,2e4);document.addEventListener("v
 Object.assign(AM,{"Plans":"እቅዶች","New plan":"አዲስ እቅድ","What will you do? e.g. review my losing trades":"ምን ያደርጋሉ? ለምሳሌ ያጡባቸውን ትሬዶች መገምገም","Today":"ዛሬ","Tomorrow":"ነገ","In 1 week":"በ1 ሳምንት","In 1 month":"በ1 ወር","Date":"ቀን","Time":"ሰዓት","Alarm (remind me)":"ማንቂያ (አስታውሰኝ)","Save plan":"እቅድ አስቀምጥ","Needs your answer":"መልስዎን ይፈልጋል","Upcoming":"የሚመጡ","History":"ታሪክ","Done ✓":"ተደርጓል ✓","Done":"ተደርጓል","Not done":"አልተደረገም","Missed":"አልተደረገም","Later (1h)":"ከ1 ሰዓት በኋላ","Plan reminder":"የእቅድ ማስታወሻ","You planned this for:":"ይህን ለማድረግ ያቀዱት፦","No plans yet.":"ገና እቅድ የለም።","Plan saved ✓":"እቅድ ተቀምጧል ✓","Write your plan first":"መጀመሪያ እቅድዎን ይጻፉ","Pick a date":"ቀን ይምረጡ","Phone alarm":"የስልክ ማንቂያ","Calendar file ready":"የ calendar ፋይል ተዘጋጅቷል","Best timeframe":"ምርጥ ታይም ፍሬም","Timeframe":"ታይም ፍሬም"});
 
 boot();
+
+Object.assign(AM,{"Email (optional)":"ኢሜል (አማራጭ)","Email address":"ኢሜል አድራሻ","Add email":"ኢሜል ጨምር","Email added ✓":"ኢሜል ተጨምሯል ✓","Enter a valid email":"ትክክለኛ ኢሜል ያስገቡ","Enter a valid email or leave it empty.":"ትክክለኛ ኢሜል ያስገቡ ወይም ባዶ ይተዉት።","Email (optional, keeps your photos safe)":"ኢሜል (አማራጭ፣ ፎቶዎችዎን ይጠብቃል)","Add your email to keep your photos safe. Without an email, photos can be lost if you clear app data or uninstall.":"ፎቶዎችዎ እንዳይጠፉ ኢሜልዎን ያስገቡ። ኢሜል ካላስገቡ የ App ዳታ ሲያጸዱ ወይም App ን ሲያጠፉ ፎቶዎች ሊጠፉ ይችላሉ።","Your trade photos are saved to your account and won't be lost.":"የትሬድ ፎቶዎችዎ በአካውንትዎ ላይ ተቀምጠዋል፣ አይጠፉም።","Without an email, your photos can be lost. Add your email above to keep them safe on your account.":"ኢሜል ካላስገቡ ፎቶዎችዎ ሊጠፉ ይችላሉ። በአካውንትዎ ላይ እንዲቀመጡ ከላይ ኢሜልዎን ያስገቡ።","Photos are stored only on this phone and can be lost if you clear app data or uninstall. Create an account and add your email to keep them safe.":"ፎቶዎች የሚቀመጡት በዚህ ስልክ ላይ ብቻ ነው፣ ዳታ ካጸዱ ወይም App ን ካጠፉ ሊጠፉ ይችላሉ። እንዳይጠፉ አካውንት ፈጥረው ኢሜልዎን ያስገቡ።","Email is optional. Add one to keep your trade photos safe on your account.":"ኢሜል አማራጭ ነው። የትሬድ ፎቶዎችዎ እንዳይጠፉ ኢሜል ይጨምሩ።"});
